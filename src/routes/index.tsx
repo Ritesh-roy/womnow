@@ -536,7 +536,6 @@ function Legend({ dot, label }: { dot: string; label: string }) {
 }
 
 function MiniCalendar() {
-  const navigate = Route.useNavigate ? null : null;
   const [cursor, setCursor] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
