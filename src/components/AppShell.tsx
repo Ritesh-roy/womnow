@@ -22,6 +22,7 @@ import {
   Building2,
   CheckCheck,
   AlertTriangle,
+  Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth, DEFAULT_USER, setStoredUser, type AuthUser } from "@/lib/auth";
 import { toast } from "sonner";
 
