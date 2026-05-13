@@ -1,6 +1,16 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Activity, Loader2, Mail, Lock, ShieldCheck, Stethoscope } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Activity,
+  AlertCircle,
+  Building2,
+  Loader2,
+  Lock,
+  Mail,
+  ShieldCheck,
+  Stethoscope,
+  User2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +19,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { DEFAULT_USER, getStoredUser, setStoredUser, type AuthUser } from "@/lib/auth";
+import { cn } from "@/lib/utils";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -28,6 +41,7 @@ function LoginPage() {
   // sign in
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [signinTouched, setSigninTouched] = useState<Record<string, boolean>>({});
 
   // sign up
   const [name, setName] = useState("");
@@ -35,10 +49,33 @@ function LoginPage() {
   const [signupPassword, setSignupPassword] = useState("");
   const [role, setRole] = useState<AuthUser["role"]>("GP");
   const [org, setOrg] = useState("");
+  const [signupTouched, setSignupTouched] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (getStoredUser()) navigate({ to: "/" });
   }, [navigate]);
+
+  const signinErrors = useMemo(() => {
+    const e: Record<string, string> = {};
+    if (!email.trim()) e.email = "Email is required.";
+    else if (!EMAIL_RE.test(email.trim())) e.email = "Enter a valid email address.";
+    if (!password) e.password = "Password is required.";
+    else if (password.length < 6) e.password = "Password must be at least 6 characters.";
+    return e;
+  }, [email, password]);
+
+  const signupErrors = useMemo(() => {
+    const e: Record<string, string> = {};
+    if (name.trim().length < 2) e.name = "Enter your full name.";
+    if (!signupEmail.trim()) e.email = "Work email is required.";
+    else if (!EMAIL_RE.test(signupEmail.trim())) e.email = "Enter a valid work email.";
+    if (signupPassword.length < 8) e.password = "Password must be at least 8 characters.";
+    if (org.trim().length < 2) e.org = "Organisation is required.";
+    return e;
+  }, [name, signupEmail, signupPassword, org]);
+
+  const signinValid = Object.keys(signinErrors).length === 0;
+  const signupValid = Object.keys(signupErrors).length === 0;
 
   const finish = (u: AuthUser, msg: string) => {
     setLoading(true);
@@ -51,12 +88,9 @@ function LoginPage() {
 
   const onSignIn = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast.error("Enter your email and password.");
-      return;
-    }
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters.");
+    setSigninTouched({ email: true, password: true });
+    if (!signinValid) {
+      toast.error("Please fix the highlighted fields.");
       return;
     }
     const local = email.split("@")[0] || "Clinician";
@@ -73,12 +107,9 @@ function LoginPage() {
 
   const onSignUp = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !signupEmail || !signupPassword || !org) {
-      toast.error("Please complete every field.");
-      return;
-    }
-    if (signupPassword.length < 8) {
-      toast.error("Password must be at least 8 characters.");
+    setSignupTouched({ name: true, email: true, password: true, org: true });
+    if (!signupValid) {
+      toast.error("Please complete every required field.");
       return;
     }
     finish({ name, email: signupEmail, role, organization: org }, "Account created");
@@ -112,8 +143,8 @@ function LoginPage() {
           </Link>
 
           <div className="max-w-md space-y-6">
-            <h1 className="text-3xl font-semibold tracking-tight leading-tight">
-              The simplest, safest GP&nbsp;→&nbsp;Specialist referral flow.
+            <h1 className="font-display text-[2.75rem] leading-[1.05] text-foreground">
+              The simplest, safest <em className="not-italic text-primary">GP → Specialist</em> referral flow.
             </h1>
             <p className="text-sm text-muted-foreground">
               Built on FHIR R4. Designed for clinicians who care about clarity, speed,
@@ -127,7 +158,7 @@ function LoginPage() {
           </div>
 
           <div className="text-[11px] text-muted-foreground">
-            © {new Date().getFullYear()} Refera Health · Demo environment
+            © {new Date().getFullYear()} Refera Health · All rights reserved
           </div>
         </div>
       </div>
@@ -137,9 +168,13 @@ function LoginPage() {
         <Card className="glass-panel border-border/60 w-full max-w-md">
           <CardContent className="p-7 space-y-6">
             <div className="space-y-1.5">
-              <h2 className="text-xl font-semibold tracking-tight">Welcome back</h2>
+              <h2 className="font-display text-3xl text-foreground">
+                {mode === "signin" ? "Welcome back" : "Create your account"}
+              </h2>
               <p className="text-sm text-muted-foreground">
-                Sign in with your clinician account to continue.
+                {mode === "signin"
+                  ? "Sign in with your clinician account to continue."
+                  : "All fields are required to register your clinical workspace."}
               </p>
             </div>
 
@@ -150,19 +185,36 @@ function LoginPage() {
               </TabsList>
 
               <TabsContent value="signin" className="mt-5">
-                <form onSubmit={onSignIn} className="space-y-4">
+                <form onSubmit={onSignIn} noValidate className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">Email *</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-9" autoComplete="email" />
+                      <Input
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        onBlur={() => setSigninTouched((t) => ({ ...t, email: true }))}
+                        className={cn(
+                          "pl-9",
+                          signinTouched.email && signinErrors.email && "border-destructive focus-visible:ring-destructive/40",
+                        )}
+                        autoComplete="email"
+                        placeholder="you@clinic.health"
+                      />
                     </div>
+                    <FieldError show={signinTouched.email} message={signinErrors.email} />
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="password">Password</Label>
+                      <Label htmlFor="password">Password *</Label>
                       <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => {
-                        if (!email) { toast.error("Enter your email first."); return; }
+                        if (!email || !EMAIL_RE.test(email)) {
+                          toast.error("Enter a valid email first.");
+                          setSigninTouched((t) => ({ ...t, email: true }));
+                          return;
+                        }
                         toast.success("Password reset link sent", { description: `Check ${email} for instructions.` });
                       }}>
                         Forgot?
@@ -170,10 +222,27 @@ function LoginPage() {
                     </div>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-9" autoComplete="current-password" />
+                      <Input
+                        id="password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        onBlur={() => setSigninTouched((t) => ({ ...t, password: true }))}
+                        className={cn(
+                          "pl-9",
+                          signinTouched.password && signinErrors.password && "border-destructive focus-visible:ring-destructive/40",
+                        )}
+                        autoComplete="current-password"
+                        placeholder="At least 6 characters"
+                      />
                     </div>
+                    <FieldError show={signinTouched.password} message={signinErrors.password} />
                   </div>
-                  <Button type="submit" disabled={loading} className="w-full bg-gradient-primary text-primary-foreground shadow-glow">
+                  <Button
+                    type="submit"
+                    disabled={loading || !signinValid}
+                    className="w-full bg-gradient-primary text-primary-foreground shadow-glow disabled:opacity-50"
+                  >
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
                   </Button>
                   <p className="text-[11px] text-muted-foreground text-center">
@@ -183,22 +252,66 @@ function LoginPage() {
               </TabsContent>
 
               <TabsContent value="signup" className="mt-5">
-                <form onSubmit={onSignUp} className="space-y-4">
+                <form onSubmit={onSignUp} noValidate className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Full name</Label>
-                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Dr. Jane Doe" />
+                    <Label htmlFor="name">Full name *</Label>
+                    <div className="relative">
+                      <User2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        onBlur={() => setSignupTouched((t) => ({ ...t, name: true }))}
+                        placeholder="Dr. Jane Doe"
+                        className={cn(
+                          "pl-9",
+                          signupTouched.name && signupErrors.name && "border-destructive focus-visible:ring-destructive/40",
+                        )}
+                      />
+                    </div>
+                    <FieldError show={signupTouched.name} message={signupErrors.name} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="su-email">Work email</Label>
-                    <Input id="su-email" type="email" value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} placeholder="jane.doe@clinic.health" />
+                    <Label htmlFor="su-email">Work email *</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="su-email"
+                        type="email"
+                        value={signupEmail}
+                        onChange={(e) => setSignupEmail(e.target.value)}
+                        onBlur={() => setSignupTouched((t) => ({ ...t, email: true }))}
+                        placeholder="jane.doe@clinic.health"
+                        className={cn(
+                          "pl-9",
+                          signupTouched.email && signupErrors.email && "border-destructive focus-visible:ring-destructive/40",
+                        )}
+                      />
+                    </div>
+                    <FieldError show={signupTouched.email} message={signupErrors.email} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="su-password">Password</Label>
-                    <Input id="su-password" type="password" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} placeholder="At least 8 characters" />
+                    <Label htmlFor="su-password">Password *</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="su-password"
+                        type="password"
+                        value={signupPassword}
+                        onChange={(e) => setSignupPassword(e.target.value)}
+                        onBlur={() => setSignupTouched((t) => ({ ...t, password: true }))}
+                        placeholder="At least 8 characters"
+                        className={cn(
+                          "pl-9",
+                          signupTouched.password && signupErrors.password && "border-destructive focus-visible:ring-destructive/40",
+                        )}
+                      />
+                    </div>
+                    <FieldError show={signupTouched.password} message={signupErrors.password} />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label>Role</Label>
+                      <Label>Role *</Label>
                       <Select value={role} onValueChange={(v) => setRole(v as AuthUser["role"])}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -209,11 +322,29 @@ function LoginPage() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="org">Organisation</Label>
-                      <Input id="org" value={org} onChange={(e) => setOrg(e.target.value)} placeholder="Clinic name" />
+                      <Label htmlFor="org">Organisation *</Label>
+                      <div className="relative">
+                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="org"
+                          value={org}
+                          onChange={(e) => setOrg(e.target.value)}
+                          onBlur={() => setSignupTouched((t) => ({ ...t, org: true }))}
+                          placeholder="Clinic name"
+                          className={cn(
+                            "pl-9",
+                            signupTouched.org && signupErrors.org && "border-destructive focus-visible:ring-destructive/40",
+                          )}
+                        />
+                      </div>
+                      <FieldError show={signupTouched.org} message={signupErrors.org} />
                     </div>
                   </div>
-                  <Button type="submit" disabled={loading} className="w-full bg-gradient-primary text-primary-foreground shadow-glow">
+                  <Button
+                    type="submit"
+                    disabled={loading || !signupValid}
+                    className="w-full bg-gradient-primary text-primary-foreground shadow-glow disabled:opacity-50"
+                  >
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create account"}
                   </Button>
                 </form>
@@ -227,6 +358,16 @@ function LoginPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function FieldError({ show, message }: { show?: boolean; message?: string }) {
+  if (!show || !message) return null;
+  return (
+    <p className="flex items-center gap-1.5 text-xs text-destructive">
+      <AlertCircle className="h-3.5 w-3.5" />
+      {message}
+    </p>
   );
 }
 
