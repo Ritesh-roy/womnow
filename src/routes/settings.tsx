@@ -13,7 +13,12 @@ import { useAuth, setStoredUser, DEFAULT_USER } from "@/lib/auth";
 import { toast } from "sonner";
 import { ShieldCheck, Smartphone, Key, Download, Keyboard, Bell, UserCircle2 } from "lucide-react";
 
-export const Route = createFileRoute("/settings")({ component: SettingsPage });
+export const Route = createFileRoute("/settings")({
+  component: SettingsPage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab: (search.tab as string | undefined) ?? undefined,
+  }),
+});
 
 const SHORTCUTS = [
   { keys: ["⌘", "K"], label: "Open global search" },
