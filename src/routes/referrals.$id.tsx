@@ -74,7 +74,7 @@ function ReferralDetail() {
 
   return (
     <AppShell>
-      <div className="px-6 py-6 max-w-[1280px] mx-auto space-y-5">
+      <div className="px-4 sm:px-6 py-5 sm:py-6 max-w-[1280px] mx-auto space-y-5">
         <Link to="/referrals" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> All referrals
         </Link>
