@@ -79,6 +79,13 @@ export const practitioners: Practitioner[] = [
   { id: "u4", name: "Dr. Idris Bello", role: "Specialist", specialty: "Endocrinology", organization: "Metro Endocrine Group" },
   { id: "u5", name: "Dr. Margot Lin", role: "Specialist", specialty: "Neurology", organization: "Northgate Neuro" },
   { id: "u6", name: "Dr. Ravi Acharya", role: "Specialist", specialty: "Gastroenterology", organization: "Northgate GI" },
+  { id: "u8", name: "Dr. Priya Shah", role: "Specialist", specialty: "Dermatology", organization: "Westbridge Skin Clinic" },
+  { id: "u9", name: "Dr. Marcus Hale", role: "Specialist", specialty: "Orthopaedics", organization: "Kingsway Orthopaedic Hospital" },
+  { id: "u10", name: "Dr. Yuki Tanaka", role: "Specialist", specialty: "Orthopaedics", organization: "Kingsway Orthopaedic Hospital" },
+  { id: "u11", name: "Dr. Noor Rahman", role: "Specialist", specialty: "ENT", organization: "Central ENT Associates" },
+  { id: "u12", name: "Dr. Beatrice Nolan", role: "Specialist", specialty: "Ophthalmology", organization: "Clearview Eye Centre" },
+  { id: "u13", name: "Dr. Owen Fischer", role: "Specialist", specialty: "Psychiatry", organization: "Meridian Mental Health" },
+  { id: "u14", name: "Dr. Lucia Romano", role: "Specialist", specialty: "Rheumatology", organization: "Greystone Rheumatology" },
   { id: "u7", name: "Alex Romero", role: "Admin", organization: "Riverside Family Practice" },
 ];
 

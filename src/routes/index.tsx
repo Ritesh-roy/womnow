@@ -541,6 +541,7 @@ function MiniCalendar() {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const today = new Date();
+  const [selected, setSelected] = useState<number | null>(today.getDate());
 
   const monthStart = cursor;
   const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
@@ -565,6 +566,20 @@ function MiniCalendar() {
     today.getFullYear() === cursor.getFullYear() &&
     today.getMonth() === cursor.getMonth() &&
     today.getDate() === n;
+
+  const dayAppointments = (n: number | null) =>
+    n === null
+      ? []
+      : appointments.filter((a) => {
+          const d = new Date(a.startsAt);
+          return (
+            d.getFullYear() === cursor.getFullYear() &&
+            d.getMonth() === cursor.getMonth() &&
+            d.getDate() === n
+          );
+        });
+
+  const selectedAppts = dayAppointments(selected);
 
   return (
     <Card className="border-border/60 bg-card/60 shadow-elegant backdrop-blur">
@@ -610,24 +625,68 @@ function MiniCalendar() {
         </div>
         <div className="mt-1 grid grid-cols-7 gap-1">
           {cells.map((n, i) => (
-            <div
+            <button
+              type="button"
               key={i}
+              disabled={n === null}
+              onClick={() => n !== null && setSelected(n)}
               className={cn(
-                "relative grid aspect-square place-items-center rounded-md text-xs",
+                "relative grid aspect-square place-items-center rounded-md text-xs transition-colors",
                 n === null
-                  ? "text-muted-foreground/40"
+                  ? "text-muted-foreground/40 cursor-default"
                   : isToday(n)
                     ? "bg-gradient-primary font-semibold text-primary-foreground shadow-glow"
-                    : "text-foreground/80 hover:bg-accent/50",
+                    : selected === n
+                      ? "bg-accent text-foreground ring-1 ring-primary/40"
+                      : "text-foreground/80 hover:bg-accent/50",
               )}
             >
               {n ?? ""}
               {n !== null && apptDays.has(n) && !isToday(n) && (
                 <span className="absolute bottom-1 h-1 w-1 rounded-full bg-primary" />
               )}
-            </div>
+            </button>
           ))}
         </div>
+        {selected !== null && (
+          <div className="mt-3 space-y-1.5 border-t border-border/60 pt-3">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              {new Date(cursor.getFullYear(), cursor.getMonth(), selected).toLocaleDateString(
+                undefined,
+                { weekday: "long", month: "short", day: "numeric" },
+              )}
+            </div>
+            {selectedAppts.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No appointments scheduled.</p>
+            ) : (
+              selectedAppts
+                .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))
+                .map((a) => {
+                  const p = getPatient(a.patientId);
+                  const s = getPractitioner(a.specialistId);
+                  return (
+                    <Link
+                      key={a.id}
+                      to="/appointments"
+                      className="block rounded-md border border-border/60 bg-card/40 px-2.5 py-1.5 text-xs hover:bg-accent/40"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-foreground">
+                          {new Date(a.startsAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                        <span className="truncate text-muted-foreground">
+                          {p?.name} · {s?.name}
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })
+            )}
+          </div>
+        )}
         <div className="mt-3 flex items-center gap-3 border-t border-border/60 pt-3 text-[11px] text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Appointment
