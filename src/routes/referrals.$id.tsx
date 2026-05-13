@@ -1,4 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import type { Referral } from "@/lib/mock-data";
 import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,7 @@ export const Route = createFileRoute("/referrals/$id")({
 });
 
 function ReferralDetail() {
-  const { referral: r } = Route.useLoaderData();
+  const { referral: r } = Route.useLoaderData() as { referral: Referral };
   const p = getPatient(r.patientId)!;
   const gp = getPractitioner(r.fromGpId)!;
   const sp = getPractitioner(r.toSpecialistId)!;
