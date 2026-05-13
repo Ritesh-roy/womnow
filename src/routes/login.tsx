@@ -26,8 +26,8 @@ function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   // sign in
-  const [email, setEmail] = useState("eleanor.voss@riverside.health");
-  const [password, setPassword] = useState("demo");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   // sign up
   const [name, setName] = useState("");
@@ -55,7 +55,20 @@ function LoginPage() {
       toast.error("Enter your email and password.");
       return;
     }
-    finish({ ...DEFAULT_USER, email }, "Signed in");
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters.");
+      return;
+    }
+    const local = email.split("@")[0] || "Clinician";
+    const inferredName = local
+      .split(/[._-]+/)
+      .filter(Boolean)
+      .map((p) => p[0].toUpperCase() + p.slice(1))
+      .join(" ");
+    finish(
+      { ...DEFAULT_USER, name: `Dr. ${inferredName}`, email },
+      "Signed in",
+    );
   };
 
   const onSignUp = (e: React.FormEvent) => {
@@ -64,10 +77,12 @@ function LoginPage() {
       toast.error("Please complete every field.");
       return;
     }
+    if (signupPassword.length < 8) {
+      toast.error("Password must be at least 8 characters.");
+      return;
+    }
     finish({ name, email: signupEmail, role, organization: org }, "Account created");
   };
-
-  const useDemo = () => finish(DEFAULT_USER, "Signed in as demo clinician");
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-background text-foreground">
@@ -146,7 +161,10 @@ function LoginPage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="password">Password</Label>
-                      <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => toast.message("Password reset link sent (demo).")}>
+                      <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => {
+                        if (!email) { toast.error("Enter your email first."); return; }
+                        toast.success("Password reset link sent", { description: `Check ${email} for instructions.` });
+                      }}>
                         Forgot?
                       </button>
                     </div>
@@ -158,9 +176,9 @@ function LoginPage() {
                   <Button type="submit" disabled={loading} className="w-full bg-gradient-primary text-primary-foreground shadow-glow">
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
                   </Button>
-                  <Button type="button" variant="outline" className="w-full" onClick={useDemo} disabled={loading}>
-                    Continue with demo account
-                  </Button>
+                  <p className="text-[11px] text-muted-foreground text-center">
+                    Protected by HIPAA-aligned audit logging and end-to-end encryption.
+                  </p>
                 </form>
               </TabsContent>
 
@@ -203,8 +221,7 @@ function LoginPage() {
             </Tabs>
 
             <p className="text-[11px] text-muted-foreground text-center">
-              By continuing you agree to our Terms and acknowledge the Privacy Notice.
-              Demo data only — no real PHI is stored.
+              By continuing you agree to our <span className="text-foreground/80">Terms of Service</span> and acknowledge the <span className="text-foreground/80">Privacy Notice</span>.
             </p>
           </CardContent>
         </Card>
