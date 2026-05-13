@@ -12,4 +12,15 @@ export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
   },
+  vite: {
+    preview: {
+      allowedHosts: [
+        "localhost",
+        "127.0.0.1",
+        "swift-referrals.onrender.com",
+        "*.vercel.app",
+        "*.vercel.com",
+      ],
+    },
+  },
 });
