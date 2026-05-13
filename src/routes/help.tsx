@@ -82,7 +82,7 @@ function HelpPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-subtle">
+        <Card>
           <CardContent className="flex flex-col sm:flex-row items-start sm:items-center gap-4 py-6">
             <div className="h-10 w-10 rounded-lg bg-primary/15 grid place-items-center text-primary">
               <LifeBuoy className="h-5 w-5" />
