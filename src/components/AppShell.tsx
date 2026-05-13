@@ -245,18 +245,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>Workspace settings</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => toast.success("Profile preferences saved", { description: "Your changes have been applied." })}>
-                  <UserCircle2 className="h-4 w-4 mr-2" /> Profile preferences
+                <DropdownMenuItem asChild>
+                  <Link to="/settings" search={{ tab: "profile" }}>
+                    <UserCircle2 className="h-4 w-4 mr-2" /> Profile preferences
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.success("Audit log exported", { description: "A signed CSV has been queued for download." })}>
-                  <ShieldCheck className="h-4 w-4 mr-2" /> Security & audit
+                <DropdownMenuItem asChild>
+                  <Link to="/settings" search={{ tab: "security" }}>
+                    <ShieldCheck className="h-4 w-4 mr-2" /> Security & audit
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.message("Keyboard shortcuts", { description: "Press ⌘K to search, N for new referral, G then R for referrals." })}>
-                  <Keyboard className="h-4 w-4 mr-2" /> Keyboard shortcuts
+                <DropdownMenuItem asChild>
+                  <Link to="/settings" search={{ tab: "shortcuts" }}>
+                    <Keyboard className="h-4 w-4 mr-2" /> Keyboard shortcuts
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => toast.message("Help center", { description: "Reach our clinical support team at support@refera.health." })}>
-                  <HelpCircle className="h-4 w-4 mr-2" /> Help & support
+                <DropdownMenuItem asChild>
+                  <Link to="/help">
+                    <HelpCircle className="h-4 w-4 mr-2" /> Help & support
+                  </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -287,11 +295,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <div className="text-xs text-muted-foreground font-normal">{active.email}</div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => toast.success("Profile loaded", { description: "Manage your clinical credentials and signature." })}>
-                  <UserCircle2 className="h-4 w-4 mr-2" /> My profile
+                <DropdownMenuItem asChild>
+                  <Link to="/settings" search={{ tab: "profile" }}>
+                    <UserCircle2 className="h-4 w-4 mr-2" /> My profile
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.success("Notification preferences updated")}>
-                  <Bell className="h-4 w-4 mr-2" /> Notification settings
+                <DropdownMenuItem asChild>
+                  <Link to="/settings" search={{ tab: "notifications" }}>
+                    <Bell className="h-4 w-4 mr-2" /> Notification settings
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onLogout} className="text-[oklch(var(--status-danger))] focus:text-[oklch(var(--status-danger))]">
