@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useLocation } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,7 +41,7 @@ const AUDIT_EVENTS = [
 function SettingsPage() {
   const { user } = useAuth();
   const u = user ?? DEFAULT_USER;
-  const search = useLocation({ select: (s) => s.search as { tab?: string } });
+  const search = Route.useSearch();
   const initial = search.tab ?? "profile";
   const [tab, setTab] = useState(initial);
 
