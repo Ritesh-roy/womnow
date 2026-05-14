@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { patients, practitioners, referrals, getPatient, getPractitioner } from "@/lib/mock-data";
+import { addStoredAppointment } from "@/lib/appointments-store";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/appointments/new")({
@@ -54,6 +55,16 @@ function NewAppointmentPage() {
       return;
     }
     const id = `APT-${Date.now().toString(36).toUpperCase()}`;
+    const startsAt = new Date(`${date}T${time}`).toISOString();
+    addStoredAppointment({
+      id,
+      referralId: referralId || "",
+      patientId,
+      specialistId,
+      startsAt,
+      durationMin: Number(duration) || 30,
+      location: location || "To be confirmed",
+    });
     setConfirmed({ id, bookedAt: new Date().toISOString() });
     toast.success("Appointment booked", {
       description: `${date} at ${time} · ${location || "Location TBC"}`,
