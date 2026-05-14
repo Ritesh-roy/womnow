@@ -79,18 +79,27 @@ function AppointmentsPage() {
                         const p = getPatient(a.patientId);
                         const sp = getPractitioner(a.specialistId);
                         if (!p || !sp) return null;
-                        return (
-                          <Link
-                            key={a.id}
-                            to={a.referralId ? "/referrals/$id" : "/appointments"}
-                            params={a.referralId ? { id: a.referralId } : undefined as never}
-                            className="block rounded-md bg-primary/15 hover:bg-primary/25 border border-primary/25 px-2 py-1.5 transition-colors"
-                          >
+                        const inner = (
+                          <>
                             <div className="text-[11px] font-semibold tabular-nums text-primary">
                               {new Date(a.startsAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
                             </div>
                             <div className="text-xs font-medium truncate">{p.name}</div>
                             <div className="text-[11px] text-muted-foreground truncate">{sp.specialty}</div>
+                          </>
+                        );
+                        const cls = "block rounded-md bg-primary/15 hover:bg-primary/25 border border-primary/25 px-2 py-1.5 transition-colors";
+                        if (!a.referralId) {
+                          return <div key={a.id} className={cls}>{inner}</div>;
+                        }
+                        return (
+                          <Link
+                            key={a.id}
+                            to="/referrals/$id"
+                            params={{ id: a.referralId }}
+                            className={cls}
+                          >
+                            {inner}
                           </Link>
                         );
                       })}
