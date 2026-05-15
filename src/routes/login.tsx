@@ -19,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { DEFAULT_USER, getStoredUser, setStoredUser, type AuthUser } from "@/lib/auth";
+import { resolvePractitionerId } from "@/lib/master-store";
 import { cn } from "@/lib/utils";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -100,6 +101,7 @@ function LoginPage() {
       .map((p) => p[0].toUpperCase() + p.slice(1))
       .join(" ");
     const isAdmin = /^admin(@|\+|\.)/i.test(email.trim());
+    const practitionerId = isAdmin ? undefined : resolvePractitionerId(email);
     finish(
       {
         ...DEFAULT_USER,
@@ -107,6 +109,7 @@ function LoginPage() {
         email,
         role: isAdmin ? "Admin" : DEFAULT_USER.role,
         organization: isAdmin ? "Refera HQ" : DEFAULT_USER.organization,
+        practitionerId,
       },
       "Signed in",
     );
@@ -119,7 +122,16 @@ function LoginPage() {
       toast.error("Please complete every required field.");
       return;
     }
-    finish({ name, email: signupEmail, role, organization: org }, "Account created");
+    finish(
+      {
+        name,
+        email: signupEmail,
+        role,
+        organization: org,
+        practitionerId: role === "Admin" ? undefined : resolvePractitionerId(signupEmail),
+      },
+      "Account created",
+    );
   };
 
   return (
