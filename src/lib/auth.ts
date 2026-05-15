@@ -7,6 +7,7 @@ export type AuthUser = {
   email: string;
   role: "GP" | "Specialist" | "Admin";
   organization: string;
+  practitionerId?: string;
 };
 
 export const DEFAULT_USER: AuthUser = {
