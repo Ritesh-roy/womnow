@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/select";
 import { patients, practitioners, referrals, getPatient, getPractitioner } from "@/lib/mock-data";
 import { addStoredAppointment } from "@/lib/appointments-store";
+import { allAppointments } from "@/lib/scoped";
+import "@/lib/chest-data";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/appointments/new")({
@@ -48,10 +50,44 @@ function NewAppointmentPage() {
     [specialistId],
   );
 
+  // Generate 09:00–17:00 slots in 30-min steps; mark booked slots from existing appointments.
+  const slotInfo = useMemo(() => {
+    const slots: { time: string; busy: boolean; conflictId?: string }[] = [];
+    if (!specialistId || !date) return { slots, conflict: false };
+    const dayStart = new Date(`${date}T00:00`);
+    const taken = allAppointments().filter((a) => {
+      if (a.specialistId !== specialistId) return false;
+      const start = new Date(a.startsAt);
+      return start.toDateString() === dayStart.toDateString();
+    });
+    const dur = Number(duration) || 30;
+    for (let h = 9; h < 17; h++) {
+      for (let m = 0; m < 60; m += 30) {
+        const t = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+        const slotStart = +new Date(`${date}T${t}`);
+        const slotEnd = slotStart + dur * 60_000;
+        const conflict = taken.find((a) => {
+          const aStart = +new Date(a.startsAt);
+          const aEnd = aStart + a.durationMin * 60_000;
+          return slotStart < aEnd && slotEnd > aStart;
+        });
+        slots.push({ time: t, busy: !!conflict, conflictId: conflict?.id });
+      }
+    }
+    const currentConflict = slots.find((s) => s.time === time)?.busy ?? false;
+    return { slots, conflict: currentConflict };
+  }, [specialistId, date, duration, time]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!patientId || !specialistId || !date || !time) {
       toast.error("Please complete patient, specialist, date and time.");
+      return;
+    }
+    if (slotInfo.conflict) {
+      toast.error("Slot unavailable", {
+        description: "This specialist is already booked at that time. Pick a green slot.",
+      });
       return;
     }
     const id = `APT-${Date.now().toString(36).toUpperCase()}`;
@@ -262,6 +298,40 @@ function NewAppointmentPage() {
                   placeholder="e.g. St. Aldwyn · Clinic A"
                 />
               </div>
+              {specialistId && date && (
+                <div className="sm:col-span-2 space-y-2">
+                  <Label>Available slots · {new Date(date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</Label>
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+                    {slotInfo.slots.map((s) => {
+                      const selected = s.time === time;
+                      return (
+                        <button
+                          key={s.time}
+                          type="button"
+                          disabled={s.busy}
+                          onClick={() => setTime(s.time)}
+                          className={
+                            "text-xs tabular-nums rounded-md px-2 py-1.5 border transition-colors " +
+                            (s.busy
+                              ? "bg-[var(--status-danger-bg)] text-[oklch(var(--status-danger))] border-[oklch(var(--status-danger))]/30 cursor-not-allowed line-through"
+                              : selected
+                                ? "bg-gradient-primary text-primary-foreground border-transparent shadow-glow"
+                                : "bg-[var(--status-success-bg)] text-[oklch(var(--status-success))] border-[oklch(var(--status-success))]/30 hover:opacity-80")
+                          }
+                          title={s.busy ? `Booked (${s.conflictId})` : "Available"}
+                        >
+                          {s.time}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                    <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-[oklch(var(--status-success))]" /> Available</span>
+                    <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-[oklch(var(--status-danger))]" /> Booked</span>
+                    <span>Booked slots auto-disable to prevent double-booking.</span>
+                  </div>
+                </div>
+              )}
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>Notes</Label>
                 <Textarea
