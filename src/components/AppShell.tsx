@@ -25,6 +25,7 @@ import {
   Menu,
   ShieldAlert,
   Database,
+  Hospital,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ const nav = [
   { to: "/referrals", label: "Referrals", icon: Inbox, hint: "Triage queue" },
   { to: "/patients", label: "Patients", icon: Users, hint: "Active panel" },
   { to: "/appointments", label: "Appointments", icon: CalendarDays, hint: "Calendar" },
+  { to: "/hospitals", label: "Hospitals", icon: Hospital, hint: "Chest hospitals" },
   { to: "/consultations", label: "Consultations", icon: FileText, hint: "Outcomes" },
   { to: "/admin", label: "Admin", icon: ShieldAlert, hint: "All data", adminOnly: true },
   { to: "/masters", label: "Masters", icon: Database, hint: "Users, Roles, Depts", adminOnly: true },
@@ -67,6 +69,7 @@ function useTitleFromPath(pathname: string) {
     if (pathname.startsWith("/referrals")) return { title: "Referrals", crumbs: ["Workspace", "Referrals"] };
     if (pathname.startsWith("/patients")) return { title: "Patients", crumbs: ["Workspace", "Patients"] };
     if (pathname.startsWith("/appointments")) return { title: "Appointments", crumbs: ["Workspace", "Appointments"] };
+    if (pathname.startsWith("/hospitals")) return { title: "Hospitals", crumbs: ["Workspace", "Hospitals"] };
     if (pathname.startsWith("/consultations")) return { title: "Consultations", crumbs: ["Workspace", "Consultations"] };
     if (pathname.startsWith("/admin")) return { title: "Admin", crumbs: ["Workspace", "Admin"] };
     if (pathname.startsWith("/masters")) return { title: "Masters", crumbs: ["Workspace", "Masters"] };
