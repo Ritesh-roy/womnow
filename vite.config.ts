@@ -10,8 +10,20 @@ export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
     prerender: { enabled: false },
+    spa: { enabled: true },
   },
   vite: {
+    environments: {
+      server: {
+        build: {
+          rollupOptions: {
+            output: {
+              entryFileNames: "[name].js",
+            },
+          },
+        },
+      },
+    },
     preview: {
       allowedHosts: [
         "localhost",
