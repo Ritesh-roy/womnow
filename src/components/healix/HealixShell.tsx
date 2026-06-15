@@ -14,6 +14,9 @@ import {
   Bell,
   Search,
   ArrowLeft,
+  Home,
+  ChevronRight,
+  ChevronsUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,6 +24,14 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const NAV = [
   { to: "/healix", label: "Dashboard", icon: LayoutDashboard },
@@ -32,6 +43,10 @@ const NAV = [
   { to: "/healix/ai", label: "AI Assistant", icon: Sparkles },
   { to: "/healix/settings", label: "Settings", icon: Settings },
 ] as const;
+
+const NAV_LABEL: Record<string, string> = Object.fromEntries(
+  NAV.map((n) => [n.to, n.label]),
+);
 
 export function HealixShell({
   title,
@@ -47,16 +62,31 @@ export function HealixShell({
   const location = useLocation();
   const [open, setOpen] = useState(false);
 
+  const crumbs = (() => {
+    const path = location.pathname;
+    const items: { label: string; to?: string }[] = [
+      { label: "Refera", to: "/" },
+      { label: "HEALIX AI", to: "/healix" },
+    ];
+    if (path !== "/healix") {
+      const seg = "/" + path.split("/").slice(1, 3).join("/");
+      items.push({ label: NAV_LABEL[seg] ?? "Page" });
+    }
+    return items;
+  })();
+
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground">
       <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-border bg-sidebar text-sidebar-foreground">
         <Brand />
+        <WorkspaceSwitcher />
         <SidebarBody pathname={location.pathname} />
       </aside>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="w-72 p-0 bg-sidebar text-sidebar-foreground border-r border-border">
           <Brand />
+          <WorkspaceSwitcher />
           <SidebarBody pathname={location.pathname} onNavigate={() => setOpen(false)} />
         </SheetContent>
       </Sheet>
@@ -71,10 +101,13 @@ export function HealixShell({
                 </Button>
               </SheetTrigger>
             </Sheet>
-            <Link to="/" className="lg:hidden inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Refera</span>
-            </Link>
+            <Button asChild variant="outline" size="sm" className="h-8 gap-1.5">
+              <Link to="/">
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Back to Refera</span>
+                <span className="sm:hidden">Refera</span>
+              </Link>
+            </Button>
             <div className="relative hidden md:block flex-1 min-w-0 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search patients, encounters, meds…" className="pl-9 h-9 bg-input/60 w-full min-w-0" />
@@ -88,12 +121,26 @@ export function HealixShell({
               <Bell className="h-4 w-4" />
               <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[oklch(var(--status-danger))]" />
             </Button>
+            <Button asChild variant="ghost" size="icon" aria-label="Return to home" className="hidden sm:inline-flex">
+              <Link to="/"><Home className="h-4 w-4" /></Link>
+            </Button>
             {actions}
           </div>
 
           <div className="flex items-end justify-between gap-3 px-3 sm:px-6 py-3 border-t border-border/60 bg-background/40">
             <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">HEALIX AI</div>
+              <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                {crumbs.map((c, i) => (
+                  <span key={i} className="inline-flex items-center gap-1">
+                    {i > 0 && <ChevronRight className="h-3 w-3 opacity-60" />}
+                    {c.to ? (
+                      <Link to={c.to} className="hover:text-foreground transition-colors">{c.label}</Link>
+                    ) : (
+                      <span className="text-foreground/80">{c.label}</span>
+                    )}
+                  </span>
+                ))}
+              </nav>
               <h1 className="text-lg sm:text-xl font-semibold tracking-tight truncate">{title}</h1>
               {subtitle && <p className="text-xs text-muted-foreground mt-0.5 truncate">{subtitle}</p>}
             </div>
@@ -104,6 +151,38 @@ export function HealixShell({
           <div className="px-3 sm:px-6 py-5 sm:py-6 max-w-[1600px] mx-auto w-full">{children}</div>
         </main>
       </div>
+    </div>
+  );
+}
+
+function WorkspaceSwitcher() {
+  return (
+    <div className="px-3 pt-3">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="w-full flex items-center justify-between gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/30 px-3 py-2 text-left hover:bg-sidebar-accent/50 transition-colors">
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Workspace</div>
+              <div className="text-sm font-medium truncate">HEALIX AI</div>
+            </div>
+            <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuLabel className="text-[10px] uppercase tracking-wider">Switch workspace</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <Link to="/" className="cursor-pointer">
+              <Home className="h-4 w-4 mr-2" /> Refera (primary)
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link to="/healix" className="cursor-pointer">
+              <Activity className="h-4 w-4 mr-2" /> HEALIX AI
+            </Link>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
