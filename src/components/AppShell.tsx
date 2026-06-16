@@ -52,6 +52,7 @@ const nav = [
   { to: "/hospitals", label: "Hospitals", icon: Hospital, hint: "Chest hospitals" },
   { to: "/consultations", label: "Consultations", icon: FileText, hint: "Outcomes" },
   { to: "/admin", label: "Admin", icon: ShieldAlert, hint: "All data", adminOnly: true },
+  { to: "/admin/conversations", label: "AI Conversations", icon: FileText, hint: "HEALIX logs", adminOnly: true },
   { to: "/masters", label: "Masters", icon: Database, hint: "Users, Roles, Depts", adminOnly: true },
 ] as const;
 
