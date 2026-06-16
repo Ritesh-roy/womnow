@@ -51,7 +51,7 @@ export type AdminActivity = {
   event_type: string;
   action: string | null;
   route: string | null;
-  metadata: unknown;
+  metadata: string | null;
   session_id: string | null;
   user_agent: string | null;
   created_at: string;
@@ -71,5 +71,8 @@ export const listActivity = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(1000);
     if (error) throw new Error(error.message);
-    return (data ?? []) as AdminActivity[];
+    return ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
+      ...(r as object),
+      metadata: r.metadata == null ? null : JSON.stringify(r.metadata),
+    })) as AdminActivity[];
   });
