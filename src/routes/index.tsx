@@ -388,7 +388,7 @@ function Dashboard() {
             </CardContent>
           </Card>
 
-          <MiniCalendar />
+          <MiniCalendar appointments={appointments} patients={patients} doctors={doctors} />
         </div>
 
         {/* Recent + Upcoming */}
@@ -409,10 +409,10 @@ function Dashboard() {
             <CardContent className="p-0">
               <div className="divide-y divide-border/60">
                 {recent.map((r) => {
-                  const p = getPatient(r.patientId)!;
-                  const sp = getPractitioner(r.toSpecialistId)!;
+                  const p = patients.find((x) => x.id === r.patient_id);
+                  const sp = doctors.find((x) => x.id === r.to_doctor_id);
                   const sm = statusMeta(r.status);
-                  const um = urgencyMeta(r.urgency);
+                  const um = priorityMeta(r.priority);
                   return (
                     <Link
                       key={r.id}
@@ -421,21 +421,17 @@ function Dashboard() {
                       className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3.5 transition-colors hover:bg-accent/40"
                     >
                       <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-primary text-xs font-semibold text-primary-foreground">
-                        {p.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .slice(0, 2)
-                          .join("")}
+                        {fullNameInitials(p?.name)}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <div className="truncate text-sm font-medium">{p.name}</div>
+                          <div className="truncate text-sm font-medium">{p?.name ?? "Unknown patient"}</div>
                           <div className="font-mono text-[10px] text-muted-foreground shrink-0">
-                            · {r.id}
+                            · {referralCode(r)}
                           </div>
                         </div>
                         <div className="truncate text-xs text-muted-foreground">
-                          {r.specialty} → {sp.name} · {r.reason}
+                          {r.specialty ?? "Referral"} → {sp?.name ?? "Unassigned"} · {r.reason ?? "No reason entered"}
                         </div>
                         <div className="mt-1.5 flex items-center gap-1.5 flex-wrap sm:hidden">
                           <StatusBadge tone={um.tone}>{um.label}</StatusBadge>
