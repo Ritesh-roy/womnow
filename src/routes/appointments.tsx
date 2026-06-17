@@ -1,13 +1,11 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CalendarPlus } from "lucide-react";
-import { getPatient, getPractitioner } from "@/lib/mock-data";
-import { subscribeAppointments } from "@/lib/appointments-store";
-import { useAuth } from "@/lib/auth";
-import { scopedAppointments } from "@/lib/scoped";
+import { fetchAppointments, fetchDoctors, fetchPatients } from "@/lib/app-data";
+import { useRealtimeTables } from "@/lib/realtime";
 
 export const Route = createFileRoute("/appointments")({
   head: () => ({ meta: [{ title: "Appointments — Refera" }] }),
@@ -16,10 +14,10 @@ export const Route = createFileRoute("/appointments")({
 
 function AppointmentsPage() {
   const location = useLocation();
-  const { user } = useAuth();
-  const [, force] = useState(0);
-  useEffect(() => subscribeAppointments(() => force((n) => n + 1)), []);
-  const all = scopedAppointments(user);
+  useRealtimeTables(["appointments", "patients", "doctors"], [["appointments"], ["patients"], ["doctors"]]);
+  const { data: all = [] } = useQuery({ queryKey: ["appointments"], queryFn: fetchAppointments });
+  const { data: patients = [] } = useQuery({ queryKey: ["patients"], queryFn: fetchPatients });
+  const { data: doctors = [] } = useQuery({ queryKey: ["doctors"], queryFn: fetchDoctors });
 
   if (location.pathname !== "/appointments") {
     return <Outlet />;
@@ -36,11 +34,11 @@ function AppointmentsPage() {
 
   const byDay = (d: Date) =>
     all
-      .filter((a) => {
-        const ad = new Date(a.startsAt);
+        .filter((a) => {
+          const ad = new Date(a.starts_at);
         return ad.toDateString() === d.toDateString();
       })
-      .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt));
+      .sort((a, b) => +new Date(a.starts_at) - +new Date(b.starts_at));
 
   return (
     <AppShell>
@@ -85,27 +83,27 @@ function AppointmentsPage() {
                     </div>
                     <div className="space-y-1.5">
                       {items.map((a) => {
-                        const p = getPatient(a.patientId);
-                        const sp = getPractitioner(a.specialistId);
+                        const p = patients.find((x) => x.id === a.patient_id);
+                        const sp = doctors.find((x) => x.id === a.doctor_id);
                         if (!p || !sp) return null;
                         const inner = (
                           <>
                             <div className="text-[11px] font-semibold tabular-nums text-primary">
-                              {new Date(a.startsAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                              {new Date(a.starts_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
                             </div>
                             <div className="text-xs font-medium truncate">{p.name}</div>
-                            <div className="text-[11px] text-muted-foreground truncate">{sp.specialty}</div>
+                            <div className="text-[11px] text-muted-foreground truncate">{sp.specialty ?? "Doctor"}</div>
                           </>
                         );
                         const cls = "block rounded-md bg-primary/15 hover:bg-primary/25 border border-primary/25 px-2 py-1.5 transition-colors";
-                        if (!a.referralId) {
+                        if (!a.referral_id) {
                           return <div key={a.id} className={cls}>{inner}</div>;
                         }
                         return (
                           <Link
                             key={a.id}
                             to="/referrals/$id"
-                            params={{ id: a.referralId }}
+                            params={{ id: a.referral_id }}
                             className={cls}
                           >
                             {inner}

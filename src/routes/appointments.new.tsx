@@ -1,24 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { CalendarPlus, ArrowLeft, Download, Check, Printer } from "lucide-react";
-import jsPDF from "jspdf";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, CalendarPlus } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { patients, practitioners, referrals, getPatient, getPractitioner } from "@/lib/mock-data";
-import { addStoredAppointment } from "@/lib/appointments-store";
-import { allAppointments } from "@/lib/scoped";
-import "@/lib/chest-data";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { fetchAppointments, fetchDoctors, fetchHospitals, fetchPatients, fetchReferrals, formatMrn } from "@/lib/app-data";
+import { useRealtimeTables } from "@/lib/realtime";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/appointments/new")({
@@ -28,357 +21,63 @@ export const Route = createFileRoute("/appointments/new")({
 
 function NewAppointmentPage() {
   const navigate = useNavigate();
-  const specialists = practitioners.filter((p) => p.role === "Specialist");
+  const qc = useQueryClient();
+  useRealtimeTables(["appointments", "patients", "doctors", "hospitals", "referrals"], [["appointments"], ["patients"], ["doctors"], ["hospitals"], ["referrals"]]);
+  const { data: patients = [] } = useQuery({ queryKey: ["patients"], queryFn: fetchPatients });
+  const { data: doctors = [] } = useQuery({ queryKey: ["doctors"], queryFn: fetchDoctors });
+  const { data: hospitals = [] } = useQuery({ queryKey: ["hospitals"], queryFn: fetchHospitals });
+  const { data: referrals = [] } = useQuery({ queryKey: ["referrals"], queryFn: fetchReferrals });
+  const { data: appointments = [] } = useQuery({ queryKey: ["appointments"], queryFn: fetchAppointments });
   const today = new Date().toISOString().slice(0, 10);
-
-  const [patientId, setPatientId] = useState<string>("");
-  const [specialistId, setSpecialistId] = useState<string>("");
-  const [referralId, setReferralId] = useState<string>("");
-  const [date, setDate] = useState<string>(today);
-  const [time, setTime] = useState<string>("09:00");
-  const [duration, setDuration] = useState<string>("30");
-  const [location, setLocation] = useState<string>("");
-  const [notes, setNotes] = useState<string>("");
-  const [confirmed, setConfirmed] = useState<null | {
-    id: string;
-    bookedAt: string;
-  }>(null);
-
-  const patient = useMemo(() => (patientId ? getPatient(patientId) : null), [patientId]);
-  const specialist = useMemo(
-    () => (specialistId ? getPractitioner(specialistId) : null),
-    [specialistId],
-  );
-
-  // Generate 09:00–17:00 slots in 30-min steps; mark booked slots from existing appointments.
-  const slotInfo = useMemo(() => {
-    const slots: { time: string; busy: boolean; conflictId?: string }[] = [];
-    if (!specialistId || !date) return { slots, conflict: false };
-    const dayStart = new Date(`${date}T00:00`);
-    const taken = allAppointments().filter((a) => {
-      if (a.specialistId !== specialistId) return false;
-      const start = new Date(a.startsAt);
-      return start.toDateString() === dayStart.toDateString();
-    });
-    const dur = Number(duration) || 30;
-    for (let h = 9; h < 17; h++) {
-      for (let m = 0; m < 60; m += 30) {
-        const t = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-        const slotStart = +new Date(`${date}T${t}`);
-        const slotEnd = slotStart + dur * 60_000;
-        const conflict = taken.find((a) => {
-          const aStart = +new Date(a.startsAt);
-          const aEnd = aStart + a.durationMin * 60_000;
-          return slotStart < aEnd && slotEnd > aStart;
-        });
-        slots.push({ time: t, busy: !!conflict, conflictId: conflict?.id });
-      }
-    }
-    const currentConflict = slots.find((s) => s.time === time)?.busy ?? false;
-    return { slots, conflict: currentConflict };
-  }, [specialistId, date, duration, time]);
-
-  const isPastDate = (d: string) => {
-    const picked = new Date(d + "T00:00");
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    return picked < now;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const [form, setForm] = useState({ patient_id: "", doctor_id: "", hospital_id: "", referral_id: "none", date: today, time: "09:00", duration_min: "30", location: "", notes: "" });
+  const [saving, setSaving] = useState(false);
+  const slotConflict = useMemo(() => appointments.some((a) => a.doctor_id === form.doctor_id && new Date(a.starts_at).toISOString() === new Date(`${form.date}T${form.time}`).toISOString()), [appointments, form]);
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patientId || !specialistId || !date || !time) {
-      toast.error("Please complete patient, specialist, date and time.");
-      return;
-    }
-    if (isPastDate(date)) {
-      toast.error("Cannot book on a past date.", {
-        description: "Please select today or a future date.",
-      });
-      return;
-    }
-    if (slotInfo.conflict) {
-      toast.error("Slot unavailable", {
-        description: "This specialist is already booked at that time. Pick a green slot.",
-      });
-      return;
-    }
-    const id = `APT-${Date.now().toString(36).toUpperCase()}`;
-    const startsAt = new Date(`${date}T${time}`).toISOString();
-    addStoredAppointment({
-      id,
-      referralId: referralId || "",
-      patientId,
-      specialistId,
-      startsAt,
-      durationMin: Number(duration) || 30,
-      location: location || "To be confirmed",
+    if (!form.patient_id || !form.doctor_id || !form.date || !form.time) return toast.error("Patient, doctor, date and time are required.");
+    if (slotConflict) return toast.error("That doctor already has an appointment at this time.");
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) return toast.error("Please sign in with a cloud account before booking.");
+    setSaving(true);
+    const { error } = await supabase.from("appointments").insert({
+      patient_id: form.patient_id,
+      doctor_id: form.doctor_id,
+      hospital_id: form.hospital_id || null,
+      referral_id: form.referral_id === "none" ? null : form.referral_id,
+      starts_at: new Date(`${form.date}T${form.time}`).toISOString(),
+      duration_min: Number(form.duration_min) || 30,
+      location: form.location || null,
+      notes: form.notes || null,
+      created_by: auth.user.id,
     });
-    setConfirmed({ id, bookedAt: new Date().toISOString() });
-    toast.success("Appointment booked", {
-      description: `${date} at ${time} · ${location || "Location TBC"}`,
-    });
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Appointment booked");
+    qc.invalidateQueries({ queryKey: ["appointments"] });
+    navigate({ to: "/appointments" });
   };
-
-  const downloadPdf = () => {
-    if (!confirmed || !patient || !specialist) return;
-    const doc = new jsPDF({ unit: "pt", format: "a4" });
-    const startsAt = new Date(`${date}T${time}`);
-    let y = 56;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.text("Refera — Appointment Confirmation", 56, y);
-    y += 10;
-    doc.setDrawColor(200);
-    doc.line(56, y, 540, y);
-    y += 26;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(120);
-    doc.text(`Reference ${confirmed.id}  ·  Booked ${new Date(confirmed.bookedAt).toLocaleString()}`, 56, y);
-    y += 30;
-    doc.setTextColor(20);
-
-    const rows: [string, string][] = [
-      ["Patient", `${patient.name}  ·  MRN ${patient.mrn}`],
-      ["DOB / Phone", `${patient.dob}  ·  ${patient.phone}`],
-      ["Specialist", `${specialist.name}  ·  ${specialist.specialty ?? "—"}`],
-      ["Organisation", specialist.organization],
-      ["Date & time", startsAt.toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" })],
-      ["Duration", `${duration} minutes`],
-      ["Location", location || "To be confirmed"],
-      ["Linked referral", referralId || "—"],
-      ["Notes", notes || "—"],
-    ];
-    doc.setFontSize(11);
-    rows.forEach(([k, v]) => {
-      doc.setFont("helvetica", "bold");
-      doc.text(k, 56, y);
-      doc.setFont("helvetica", "normal");
-      const lines = doc.splitTextToSize(v, 360);
-      doc.text(lines, 180, y);
-      y += 18 * Math.max(1, lines.length);
-    });
-    y += 20;
-    doc.setDrawColor(220);
-    doc.line(56, y, 540, y);
-    y += 22;
-    doc.setFontSize(9);
-    doc.setTextColor(120);
-    doc.text("This is a system-generated confirmation. Please arrive 10 minutes prior.", 56, y);
-    doc.save(`refera-appointment-${confirmed.id}.pdf`);
-    toast.success("PDF downloaded");
-  };
-
   return (
-    <AppShell>
-      <div className="px-4 sm:px-6 py-5 sm:py-6 max-w-3xl mx-auto space-y-5">
-        <div className="flex items-center gap-3">
-          <Link to="/appointments">
-            <Button variant="ghost" size="icon" aria-label="Back">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Book appointment</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Schedule a new specialist visit for a patient.
-            </p>
-          </div>
-        </div>
-
-        {confirmed && patient && specialist && (
-          <Card className="glass-panel border-primary/40 shadow-glow">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Check className="h-4 w-4 text-primary" /> Appointment confirmed · {confirmed.id}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                <Row k="Patient" v={`${patient.name} · MRN ${patient.mrn}`} />
-                <Row k="Specialist" v={`${specialist.name} · ${specialist.specialty ?? "—"}`} />
-                <Row
-                  k="When"
-                  v={new Date(`${date}T${time}`).toLocaleString(undefined, {
-                    dateStyle: "full",
-                    timeStyle: "short",
-                  })}
-                />
-                <Row k="Duration" v={`${duration} minutes`} />
-                <Row k="Location" v={location || "TBC"} />
-                <Row k="Linked referral" v={referralId || "—"} />
-              </dl>
-              <div className="flex flex-wrap gap-2 pt-2">
-                <Button onClick={downloadPdf} className="gap-1.5 bg-gradient-primary text-primary-foreground shadow-glow">
-                  <Download className="h-4 w-4" /> Save record as PDF
-                </Button>
-                <Button variant="outline" onClick={() => window.print()} className="gap-1.5">
-                  <Printer className="h-4 w-4" /> Print
-                </Button>
-                <Button variant="ghost" onClick={() => navigate({ to: "/appointments" })}>
-                  Back to calendar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card className="glass-panel border-border/60">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <CalendarPlus className="h-4 w-4 text-primary" /> Appointment details
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>Patient</Label>
-                <Select value={patientId} onValueChange={setPatientId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select patient" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {patients.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name} · {p.mrn}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>Specialist</Label>
-                <Select value={specialistId} onValueChange={setSpecialistId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select specialist" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {specialists.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name} · {s.specialty}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Date</Label>
-                <Input type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Time</Label>
-                <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Duration (min)</Label>
-                <Select value={duration} onValueChange={setDuration}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {["15", "30", "45", "60", "90"].map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d} min
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Linked referral (optional)</Label>
-                <Select value={referralId} onValueChange={setReferralId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="None" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {referrals.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        {r.id} · {r.specialty}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>Location</Label>
-                <Input
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g. St. Aldwyn · Clinic A"
-                />
-              </div>
-              {specialistId && date && (
-                <div className="sm:col-span-2 space-y-2">
-                  <Label>Available slots · {new Date(date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</Label>
-                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
-                    {slotInfo.slots.map((s) => {
-                      const selected = s.time === time;
-                      return (
-                        <button
-                          key={s.time}
-                          type="button"
-                          disabled={s.busy}
-                          onClick={() => setTime(s.time)}
-                          className={
-                            "text-xs tabular-nums rounded-md px-2 py-1.5 border transition-colors " +
-                            (s.busy
-                              ? "bg-[var(--status-danger-bg)] text-[oklch(var(--status-danger))] border-[oklch(var(--status-danger))]/30 cursor-not-allowed line-through"
-                              : selected
-                                ? "bg-gradient-primary text-primary-foreground border-transparent shadow-glow"
-                                : "bg-[var(--status-success-bg)] text-[oklch(var(--status-success))] border-[oklch(var(--status-success))]/30 hover:opacity-80")
-                          }
-                          title={s.busy ? `Booked (${s.conflictId})` : "Available"}
-                        >
-                          {s.time}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                    <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-[oklch(var(--status-success))]" /> Available</span>
-                    <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-[oklch(var(--status-danger))]" /> Booked</span>
-                    <span>Booked slots auto-disable to prevent double-booking.</span>
-                  </div>
-                </div>
-              )}
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>Notes</Label>
-                <Textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Anything the specialist should know"
-                  rows={3}
-                />
-              </div>
-
-              <div className="sm:col-span-2 flex flex-wrap justify-end gap-2 pt-2">
-                <Link to="/appointments">
-                  <Button type="button" variant="outline">Cancel</Button>
-                </Link>
-                <Button
-                  type="submit"
-                  className="bg-gradient-primary text-primary-foreground shadow-glow"
-                >
-                  {confirmed ? "Update booking" : "Book appointment"}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    </AppShell>
+    <AppShell><div className="px-4 sm:px-6 py-5 sm:py-6 max-w-3xl mx-auto space-y-5">
+      <div className="flex items-center gap-3"><Link to="/appointments"><Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link><div><h1 className="text-2xl font-semibold tracking-tight">Book appointment</h1><p className="text-sm text-muted-foreground mt-1">Create a live appointment record.</p></div></div>
+      <Card className="glass-panel border-border/60"><CardHeader><CardTitle className="text-base flex items-center gap-2"><CalendarPlus className="h-4 w-4 text-primary" /> Appointment details</CardTitle></CardHeader><CardContent>
+        <form onSubmit={submit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Patient *"><Select value={form.patient_id} onValueChange={(v) => setForm({ ...form, patient_id: v })}><SelectTrigger><SelectValue placeholder="Select patient" /></SelectTrigger><SelectContent>{patients.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} · {formatMrn(p)}</SelectItem>)}</SelectContent></Select></Field>
+          <Field label="Doctor *"><Select value={form.doctor_id} onValueChange={(v) => setForm({ ...form, doctor_id: v })}><SelectTrigger><SelectValue placeholder="Select doctor" /></SelectTrigger><SelectContent>{doctors.map((d) => <SelectItem key={d.id} value={d.id}>{d.name} · {d.specialty ?? "Doctor"}</SelectItem>)}</SelectContent></Select></Field>
+          <Field label="Hospital / clinic"><Select value={form.hospital_id} onValueChange={(v) => setForm({ ...form, hospital_id: v })}><SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger><SelectContent>{hospitals.map((h) => <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>)}</SelectContent></Select></Field>
+          <Field label="Linked referral"><Select value={form.referral_id} onValueChange={(v) => setForm({ ...form, referral_id: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">None</SelectItem>{referrals.map((r) => <SelectItem key={r.id} value={r.id}>{r.ref_code ?? r.id} · {r.specialty ?? "Referral"}</SelectItem>)}</SelectContent></Select></Field>
+          <Field label="Date *"><Input type="date" min={today} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></Field>
+          <Field label="Time *"><Input type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} /></Field>
+          <Field label="Duration (minutes)"><Input type="number" min="5" step="5" value={form.duration_min} onChange={(e) => setForm({ ...form, duration_min: e.target.value })} /></Field>
+          <Field label="Location"><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
+          <div className="sm:col-span-2"><Field label="Notes"><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field></div>
+          {slotConflict && <div className="sm:col-span-2 text-sm text-destructive">This doctor already has an appointment at that exact time.</div>}
+          <div className="sm:col-span-2 flex justify-end gap-2"><Link to="/appointments"><Button type="button" variant="outline">Cancel</Button></Link><Button type="submit" disabled={saving} className="bg-gradient-primary text-primary-foreground shadow-glow">{saving ? "Saving…" : "Book appointment"}</Button></div>
+        </form>
+      </CardContent></Card>
+    </div></AppShell>
   );
 }
 
-function Row({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="flex flex-col">
-      <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">{k}</dt>
-      <dd className="text-sm font-medium">{v}</dd>
-    </div>
-  );
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return <div className="space-y-1.5"><Label>{label}</Label>{children}</div>;
 }
