@@ -93,31 +93,33 @@ function Dashboard() {
   const active = user ?? DEFAULT_USER;
   const firstName = active.name.replace(/^Dr\.\s+/, "").split(" ")[0];
   const now = useNow();
-  const referrals = scopedReferrals(user);
-  const appointments = scopedAppointments(user);
-  const patients = scopedPatients(user);
+  useRealtimeTables(["patients", "doctors", "referrals", "appointments"], [["patients"], ["doctors"], ["referrals"], ["appointments"]]);
+  const { data: referrals = [] } = useQuery({ queryKey: ["referrals"], queryFn: fetchReferrals });
+  const { data: appointments = [] } = useQuery({ queryKey: ["appointments"], queryFn: fetchAppointments });
+  const { data: patients = [] } = useQuery({ queryKey: ["patients"], queryFn: fetchPatients });
+  const { data: doctors = [] } = useQuery({ queryKey: ["doctors"], queryFn: fetchDoctors });
 
   const open = referrals.filter((r) =>
     ["submitted", "accepted", "scheduled"].includes(r.status),
   );
   const urgent = referrals.filter(
-    (r) => r.urgency !== "routine" && r.status !== "completed",
+    (r) => r.priority !== "routine" && r.status !== "completed",
   );
   const completed = referrals.filter((r) => r.status === "completed");
   const recent = useMemo(
     () =>
       [...referrals]
-        .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
+        .sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at))
         .slice(0, 5),
-    [],
+    [referrals],
   );
   const upcoming = useMemo(
     () =>
       [...appointments]
-        .filter((a) => +new Date(a.startsAt) >= Date.now() - 86400000)
-        .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))
+        .filter((a) => +new Date(a.starts_at) >= Date.now() - 86400000)
+        .sort((a, b) => +new Date(a.starts_at) - +new Date(b.starts_at))
         .slice(0, 4),
-    [],
+    [appointments],
   );
 
   const insightsData = [
