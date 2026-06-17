@@ -40,8 +40,9 @@ export async function logActivity(
   try {
     const { data: auth } = await supabase.auth.getUser();
     const authUserId = auth.user?.id ?? null;
+    if (!authUserId) return;
     const dbSessionId = window.sessionStorage.getItem(DB_SESSION_KEY);
-    if (dbSessionId && authUserId) {
+    if (dbSessionId) {
       void supabase
         .from("user_sessions")
         .update({ last_active_at: new Date().toISOString() })
