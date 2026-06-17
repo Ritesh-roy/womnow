@@ -54,7 +54,8 @@ function NewReferral() {
     if (error) return toast.error(error.message);
     toast.success("Patient referred");
     qc.invalidateQueries({ queryKey: ["referrals"] });
-    navigate({ to: data?.id ? "/referrals/$id" : "/referrals", params: data?.id ? { id: data.id } : undefined });
+    if (data?.id) navigate({ to: "/referrals/$id", params: { id: data.id } });
+    else navigate({ to: "/referrals" });
   };
 
   return (
