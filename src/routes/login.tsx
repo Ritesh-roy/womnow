@@ -19,61 +19,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { DEFAULT_USER, getStoredUser, setStoredUser, type AuthUser } from "@/lib/auth";
-import { resolvePractitionerId } from "@/lib/master-store";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivity, resetActivitySession, startUserSession } from "@/lib/activity";
 import { cn } from "@/lib/utils";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const REGISTRY_KEY = "refera.auth.registry";
-
-type RegistryEntry = {
-  email: string;
-  password: string;
-  name: string;
-  role: AuthUser["role"];
-  organization: string;
-};
-
-const DEMO_ACCOUNTS: RegistryEntry[] = [
-  {
-    email: "adminleo@gmail.com",
-    password: "leo@admin",
-    name: "Admin · Refera",
-    role: "Admin",
-    organization: "Refera HQ",
-  },
-];
-
-function readRegistry(): RegistryEntry[] {
-  if (typeof window === "undefined") return DEMO_ACCOUNTS;
-  try {
-    const raw = window.localStorage.getItem(REGISTRY_KEY);
-    const list = raw ? (JSON.parse(raw) as RegistryEntry[]) : [];
-    const merged = [...list];
-    for (const d of DEMO_ACCOUNTS) {
-      if (!merged.some((e) => e.email.toLowerCase() === d.email.toLowerCase())) {
-        merged.push(d);
-      }
-    }
-    return merged;
-  } catch {
-    return DEMO_ACCOUNTS;
-  }
-}
-
-function writeRegistry(entry: RegistryEntry) {
-  if (typeof window === "undefined") return;
-  try {
-    const raw = window.localStorage.getItem(REGISTRY_KEY);
-    const list = raw ? (JSON.parse(raw) as RegistryEntry[]) : [];
-    const filtered = list.filter((e) => e.email.toLowerCase() !== entry.email.toLowerCase());
-    filtered.push(entry);
-    window.localStorage.setItem(REGISTRY_KEY, JSON.stringify(filtered));
-  } catch {
-    // ignore
-  }
-}
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -169,96 +119,34 @@ function LoginPage() {
       return;
     }
     setLoading(true);
-    const { error: cloudError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    if (!cloudError) {
-      await finishCloudSignIn();
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (error) {
+      setLoading(false);
+      toast.error("Cloud login failed", { description: error.message });
       return;
     }
-
-    const registry = readRegistry();
-    const match = registry.find((r) => r.email.toLowerCase() === email.trim().toLowerCase());
-    setLoading(false);
-    if (!match) {
-      toast.error("No account found for this email.", {
-        description: "Please create an account first.",
-        action: { label: "Create account", onClick: () => setMode("signup") },
-      });
-      return;
-    }
-    if (match.password !== password) {
-      toast.error("Incorrect password.", {
-        description: "Please try again or reset your password.",
-      });
-      return;
-    }
-    // Best-effort Supabase sign-in so admin server functions get a bearer token.
-    try {
-      await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    } catch {
-      // ignore — fall through to mock auth for demo accounts
-    }
-    const isAdmin = match.role === "Admin";
-    const practitionerId = isAdmin ? undefined : resolvePractitionerId(match.email);
-    resetActivitySession();
-    void logActivity(
-      "login",
-      { action: "Signed in", metadata: { method: "password" } },
-      { name: match.name, email: match.email, role: match.role },
-    );
-    finish(
-      {
-        ...DEFAULT_USER,
-        name: match.name,
-        email: match.email,
-        role: match.role,
-        organization: match.organization,
-        practitionerId,
-      },
-      "Signed in",
-    );
+    await finishCloudSignIn();
   };
 
-  const onSignUp = (e: React.FormEvent) => {
+  const onSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignupTouched({ name: true, email: true, password: true, org: true });
     if (!signupValid) {
       toast.error("Please complete every required field.");
       return;
     }
-    const registry = readRegistry();
-    if (registry.some((r) => r.email.toLowerCase() === signupEmail.trim().toLowerCase())) {
-      toast.error("An account with this email already exists.", {
-        description: "Please sign in instead.",
-        action: { label: "Sign in", onClick: () => setMode("signin") },
-      });
-      return;
-    }
-    writeRegistry({
+    setLoading(true);
+    const { error } = await supabase.auth.signUp({
       email: signupEmail.trim(),
       password: signupPassword,
-      name,
-      role,
-      organization: org,
+      options: { data: { name, role, organization: org } },
     });
-    toast.success("Account created", {
-      description: "Please sign in with your new credentials.",
-    });
+    setLoading(false);
+    if (error) return toast.error("Account creation failed", { description: error.message });
+    toast.success("Account created", { description: "Please check your email if confirmation is required, then sign in." });
     setEmail(signupEmail.trim());
     setPassword("");
     setMode("signin");
-    setLoading(false);
-    return;
-    // eslint-disable-next-line no-unreachable
-    finish(
-      {
-        name,
-        email: signupEmail,
-        role,
-        organization: org,
-        practitionerId: role === "Admin" ? undefined : resolvePractitionerId(signupEmail),
-      },
-      "Account created",
-    );
   };
 
   return (

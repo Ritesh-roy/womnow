@@ -90,9 +90,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Auth guard — redirect unauthenticated users to /login
   useEffect(() => {
-    if (ready && !user && location.pathname !== "/login") {
-      navigate({ to: "/login" });
-    }
+    if (!ready || location.pathname === "/login") return;
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!cancelled && (!user || !data.user)) {
+        setStoredUser(null);
+        navigate({ to: "/login" });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [ready, user, location.pathname, navigate]);
 
   // Keep local UI role aligned with the cloud role table for admin access.

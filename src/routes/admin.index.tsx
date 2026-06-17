@@ -1,14 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Clock, Inbox, Search, ShieldAlert, Stethoscope, Users } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { CalendarDays, Inbox, LogOut, Search, ShieldAlert, Stethoscope, Users } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/StatusBadge";
 import { fetchActivity, fetchAppointments, fetchDoctors, fetchPatients, fetchReferrals, fetchUserSessions, formatMrn, priorityMeta, referralCode, statusMeta } from "@/lib/app-data";
 import { useRealtimeTables } from "@/lib/realtime";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({ meta: [{ title: "Admin — Refera" }] }),
@@ -16,6 +19,7 @@ export const Route = createFileRoute("/admin/")({
 });
 
 function AdminPage() {
+  const qc = useQueryClient();
   const [q, setQ] = useState("");
   const term = q.trim().toLowerCase();
   useRealtimeTables(["patients", "doctors", "referrals", "appointments", "user_activity", "user_sessions"], [["patients"], ["doctors"], ["referrals"], ["appointments"], ["activity-feed"], ["user-sessions"]]);
@@ -25,6 +29,17 @@ function AdminPage() {
   const { data: appointments = [] } = useQuery({ queryKey: ["appointments"], queryFn: fetchAppointments });
   const { data: activity = [] } = useQuery({ queryKey: ["activity-feed"], queryFn: fetchActivity });
   const { data: sessions = [] } = useQuery({ queryKey: ["user-sessions"], queryFn: fetchUserSessions });
+
+  const endSession = async (id: string) => {
+    const now = new Date().toISOString();
+    const { error } = await supabase.from("user_sessions").update({ logout_at: now, last_active_at: now }).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Session marked logged out");
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["user-sessions"] }),
+      qc.invalidateQueries({ queryKey: ["activity-feed"] }),
+    ]);
+  };
 
   const fPatients = useMemo(() => patients.filter((p) => !term || `${p.name} ${formatMrn(p)} ${p.phone ?? ""} ${(p.problems ?? []).join(" ")}`.toLowerCase().includes(term)), [patients, term]);
   const fDoctors = useMemo(() => doctors.filter((d) => !term || `${d.name} ${d.email ?? ""} ${d.specialty ?? ""} ${d.status}`.toLowerCase().includes(term)), [doctors, term]);
@@ -57,7 +72,7 @@ function AdminPage() {
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{stats.map((s) => { const Icon = s.icon; return <Card key={s.label} className="border-border/60 bg-card/60"><CardContent className="p-4 flex items-center gap-3"><div className="h-9 w-9 rounded-lg bg-primary/15 grid place-items-center text-primary"><Icon className="h-4 w-4" /></div><div><div className="text-xl font-semibold tabular-nums">{s.value}</div><div className="text-[11px] uppercase tracking-wider text-muted-foreground">{s.label}</div></div></CardContent></Card>; })}</div>
         <Tabs defaultValue="sessions"><TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full sm:w-auto"><TabsTrigger value="sessions">Sessions</TabsTrigger><TabsTrigger value="patients">Patients</TabsTrigger><TabsTrigger value="doctors">Doctors</TabsTrigger><TabsTrigger value="referrals">Referrals</TabsTrigger><TabsTrigger value="appointments">Appointments</TabsTrigger><TabsTrigger value="activity">Activity</TabsTrigger></TabsList>
-          <TabsContent value="sessions" className="mt-4"><DataTable title={`Live sessions (${sessions.length})`} cols={["User", "Login", "Logout", "Duration", "Status"]}>{sessions.map((s) => { const active = !s.logout_at; return <tr key={s.id} className="hover:bg-accent/40"><td className="px-5 py-3 font-medium">{s.user_email ?? "Unknown user"}</td><td className="px-5 py-3 text-muted-foreground tabular-nums">{new Date(s.login_at).toLocaleString()}</td><td className="px-5 py-3 text-muted-foreground tabular-nums">{s.logout_at ? new Date(s.logout_at).toLocaleString() : "—"}</td><td className="px-5 py-3 text-muted-foreground tabular-nums">{formatDuration(s.duration_seconds ?? (active ? Math.floor((Date.now() - new Date(s.login_at).getTime()) / 1000) : null))}</td><td className="px-5 py-3"><StatusBadge tone={active ? "success" : "neutral"}>{active ? "Active" : "Logged out"}</StatusBadge></td></tr>; })}</DataTable></TabsContent>
+          <TabsContent value="sessions" className="mt-4"><DataTable title={`Live sessions (${sessions.length})`} cols={["User", "Login", "Logout", "Duration", "Status", "Action"]}>{sessions.map((s) => { const active = !s.logout_at; const inactive = active && Date.now() - new Date(s.last_active_at ?? s.login_at).getTime() > 5 * 60_000; return <tr key={s.id} className="hover:bg-accent/40"><td className="px-5 py-3 font-medium">{s.user_email ?? "Unknown user"}</td><td className="px-5 py-3 text-muted-foreground tabular-nums">{new Date(s.login_at).toLocaleString()}</td><td className="px-5 py-3 text-muted-foreground tabular-nums">{s.logout_at ? new Date(s.logout_at).toLocaleString() : "—"}</td><td className="px-5 py-3 text-muted-foreground tabular-nums">{formatDuration(s.duration_seconds ?? (active ? Math.floor((Date.now() - new Date(s.login_at).getTime()) / 1000) : null))}</td><td className="px-5 py-3"><StatusBadge tone={active ? (inactive ? "warn" : "success") : "neutral"}>{active ? (inactive ? "Inactive" : "Active") : "Logged out"}</StatusBadge></td><td className="px-5 py-3">{active ? <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => endSession(s.id)}><LogOut className="h-3.5 w-3.5" /> Logout</Button> : <span className="text-muted-foreground">—</span>}</td></tr>; })}</DataTable></TabsContent>
           <TabsContent value="patients" className="mt-4"><DataTable title={`All patients (${fPatients.length})`} cols={["Patient", "MRN", "DOB", "Phone", "Problems"]}>{fPatients.map((p) => <tr key={p.id} className="hover:bg-accent/40"><td className="px-5 py-3 font-medium">{p.name}</td><td className="px-5 py-3 text-muted-foreground font-mono text-xs">{formatMrn(p)}</td><td className="px-5 py-3 text-muted-foreground">{p.dob ?? "—"}</td><td className="px-5 py-3 text-muted-foreground">{p.phone ?? "—"}</td><td className="px-5 py-3 text-muted-foreground">{(p.problems ?? []).join(", ") || "—"}</td></tr>)}</DataTable></TabsContent>
           <TabsContent value="doctors" className="mt-4"><DataTable title={`All doctors (${fDoctors.length})`} cols={["Name", "Email", "Specialty", "Status"]}>{fDoctors.map((d) => <tr key={d.id} className="hover:bg-accent/40"><td className="px-5 py-3 font-medium">{d.name}</td><td className="px-5 py-3 text-muted-foreground">{d.email ?? "—"}</td><td className="px-5 py-3 text-muted-foreground">{d.specialty ?? "—"}</td><td className="px-5 py-3"><StatusBadge tone={statusMeta(d.status).tone}>{statusMeta(d.status).label}</StatusBadge></td></tr>)}</DataTable></TabsContent>
           <TabsContent value="referrals" className="mt-4"><DataTable title={`All referrals (${fReferrals.length})`} cols={["ID", "Patient", "Doctor", "Priority", "Status"]}>{fReferrals.map((r) => { const p = patients.find((x) => x.id === r.patient_id); const d = doctors.find((x) => x.id === r.to_doctor_id); const sm = statusMeta(r.status); const pm = priorityMeta(r.priority); return <tr key={r.id} className="hover:bg-accent/40"><td className="px-5 py-3 font-mono text-xs text-primary"><Link to="/referrals/$id" params={{ id: r.id }}>{referralCode(r)}</Link></td><td className="px-5 py-3 font-medium">{p?.name ?? "—"}</td><td className="px-5 py-3 text-muted-foreground">{d?.name ?? "—"}</td><td className="px-5 py-3"><StatusBadge tone={pm.tone} dot={false}>{pm.label}</StatusBadge></td><td className="px-5 py-3"><StatusBadge tone={sm.tone}>{sm.label}</StatusBadge></td></tr>; })}</DataTable></TabsContent>
