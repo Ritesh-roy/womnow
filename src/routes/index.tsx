@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   ArrowUpRight,
@@ -30,14 +31,19 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/StatusBadge";
 import {
-  getPatient,
-  getPractitioner,
+  fetchAppointments,
+  fetchDoctors,
+  fetchPatients,
+  fetchReferrals,
+  formatMrn,
+  fullNameInitials,
+  priorityMeta,
+  referralCode,
   statusMeta,
-  urgencyMeta,
-} from "@/lib/mock-data";
+} from "@/lib/app-data";
 import { useAuth, DEFAULT_USER } from "@/lib/auth";
-import { scopedAppointments, scopedPatients, scopedReferrals } from "@/lib/scoped";
 import { cn } from "@/lib/utils";
+import { useRealtimeTables } from "@/lib/realtime";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -87,31 +93,33 @@ function Dashboard() {
   const active = user ?? DEFAULT_USER;
   const firstName = active.name.replace(/^Dr\.\s+/, "").split(" ")[0];
   const now = useNow();
-  const referrals = scopedReferrals(user);
-  const appointments = scopedAppointments(user);
-  const patients = scopedPatients(user);
+  useRealtimeTables(["patients", "doctors", "referrals", "appointments"], [["patients"], ["doctors"], ["referrals"], ["appointments"]]);
+  const { data: referrals = [] } = useQuery({ queryKey: ["referrals"], queryFn: fetchReferrals });
+  const { data: appointments = [] } = useQuery({ queryKey: ["appointments"], queryFn: fetchAppointments });
+  const { data: patients = [] } = useQuery({ queryKey: ["patients"], queryFn: fetchPatients });
+  const { data: doctors = [] } = useQuery({ queryKey: ["doctors"], queryFn: fetchDoctors });
 
   const open = referrals.filter((r) =>
     ["submitted", "accepted", "scheduled"].includes(r.status),
   );
   const urgent = referrals.filter(
-    (r) => r.urgency !== "routine" && r.status !== "completed",
+    (r) => r.priority !== "routine" && r.status !== "completed",
   );
   const completed = referrals.filter((r) => r.status === "completed");
   const recent = useMemo(
     () =>
       [...referrals]
-        .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
+        .sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at))
         .slice(0, 5),
-    [],
+    [referrals],
   );
   const upcoming = useMemo(
     () =>
       [...appointments]
-        .filter((a) => +new Date(a.startsAt) >= Date.now() - 86400000)
-        .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))
+        .filter((a) => +new Date(a.starts_at) >= Date.now() - 86400000)
+        .sort((a, b) => +new Date(a.starts_at) - +new Date(b.starts_at))
         .slice(0, 4),
-    [],
+    [appointments],
   );
 
   const insightsData = [
@@ -380,7 +388,7 @@ function Dashboard() {
             </CardContent>
           </Card>
 
-          <MiniCalendar />
+          <MiniCalendar appointments={appointments} patients={patients} doctors={doctors} />
         </div>
 
         {/* Recent + Upcoming */}
@@ -401,10 +409,10 @@ function Dashboard() {
             <CardContent className="p-0">
               <div className="divide-y divide-border/60">
                 {recent.map((r) => {
-                  const p = getPatient(r.patientId)!;
-                  const sp = getPractitioner(r.toSpecialistId)!;
+                  const p = patients.find((x) => x.id === r.patient_id);
+                  const sp = doctors.find((x) => x.id === r.to_doctor_id);
                   const sm = statusMeta(r.status);
-                  const um = urgencyMeta(r.urgency);
+                  const um = priorityMeta(r.priority);
                   return (
                     <Link
                       key={r.id}
@@ -413,21 +421,17 @@ function Dashboard() {
                       className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3.5 transition-colors hover:bg-accent/40"
                     >
                       <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-primary text-xs font-semibold text-primary-foreground">
-                        {p.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .slice(0, 2)
-                          .join("")}
+                        {fullNameInitials(p?.name)}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <div className="truncate text-sm font-medium">{p.name}</div>
+                          <div className="truncate text-sm font-medium">{p?.name ?? "Unknown patient"}</div>
                           <div className="font-mono text-[10px] text-muted-foreground shrink-0">
-                            · {r.id}
+                            · {referralCode(r)}
                           </div>
                         </div>
                         <div className="truncate text-xs text-muted-foreground">
-                          {r.specialty} → {sp.name} · {r.reason}
+                          {r.specialty ?? "Referral"} → {sp?.name ?? "Unassigned"} · {r.reason ?? "No reason entered"}
                         </div>
                         <div className="mt-1.5 flex items-center gap-1.5 flex-wrap sm:hidden">
                           <StatusBadge tone={um.tone}>{um.label}</StatusBadge>
@@ -461,9 +465,9 @@ function Dashboard() {
             <CardContent className="p-0">
               <div className="divide-y divide-border/60">
                 {upcoming.map((a) => {
-                  const p = getPatient(a.patientId)!;
-                  const sp = getPractitioner(a.specialistId)!;
-                  const d = new Date(a.startsAt);
+                  const p = patients.find((x) => x.id === a.patient_id);
+                  const sp = doctors.find((x) => x.id === a.doctor_id);
+                  const d = new Date(a.starts_at);
                   return (
                     <div key={a.id} className="flex items-center gap-3 px-5 py-3.5">
                       <div className="w-12 rounded-md border border-border/60 bg-background/40 py-1 text-center">
@@ -475,9 +479,9 @@ function Dashboard() {
                         </div>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium">{p.name}</div>
+                        <div className="truncate text-sm font-medium">{p?.name ?? "Unknown patient"}</div>
                         <div className="truncate text-xs text-muted-foreground">
-                          {sp.specialty} · {sp.name}
+                          {sp?.specialty ?? "Doctor"} · {sp?.name ?? "Unassigned"}
                         </div>
                       </div>
                       <div className="font-mono text-xs tabular-nums text-muted-foreground">
@@ -551,9 +555,7 @@ function Legend({ dot, label }: { dot: string; label: string }) {
   );
 }
 
-function MiniCalendar() {
-  const { user } = useAuth();
-  const appointments = scopedAppointments(user);
+function MiniCalendar({ appointments, patients, doctors }: { appointments: Awaited<ReturnType<typeof fetchAppointments>>; patients: Awaited<ReturnType<typeof fetchPatients>>; doctors: Awaited<ReturnType<typeof fetchDoctors>> }) {
   const [cursor, setCursor] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -572,7 +574,7 @@ function MiniCalendar() {
 
   const apptDays = new Set(
     appointments
-      .map((a) => new Date(a.startsAt))
+      .map((a) => new Date(a.starts_at))
       .filter(
         (d) =>
           d.getFullYear() === cursor.getFullYear() && d.getMonth() === cursor.getMonth(),
@@ -589,7 +591,7 @@ function MiniCalendar() {
     n === null
       ? []
       : appointments.filter((a) => {
-          const d = new Date(a.startsAt);
+          const d = new Date(a.starts_at);
           return (
             d.getFullYear() === cursor.getFullYear() &&
             d.getMonth() === cursor.getMonth() &&
@@ -678,10 +680,10 @@ function MiniCalendar() {
               <p className="text-xs text-muted-foreground">No appointments scheduled.</p>
             ) : (
               selectedAppts
-                .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))
+                .sort((a, b) => +new Date(a.starts_at) - +new Date(b.starts_at))
                 .map((a) => {
-                  const p = getPatient(a.patientId);
-                  const s = getPractitioner(a.specialistId);
+                  const p = patients.find((x) => x.id === a.patient_id);
+                  const s = doctors.find((x) => x.id === a.doctor_id);
                   return (
                     <Link
                       key={a.id}
@@ -690,7 +692,7 @@ function MiniCalendar() {
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-medium text-foreground">
-                          {new Date(a.startsAt).toLocaleTimeString([], {
+                          {new Date(a.starts_at).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
