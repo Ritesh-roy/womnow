@@ -40,6 +40,14 @@ export async function logActivity(
   try {
     const { data: auth } = await supabase.auth.getUser();
     const authUserId = auth.user?.id ?? null;
+    const dbSessionId = window.sessionStorage.getItem(DB_SESSION_KEY);
+    if (dbSessionId && authUserId) {
+      void supabase
+        .from("user_sessions")
+        .update({ last_active_at: new Date().toISOString() })
+        .eq("id", dbSessionId)
+        .eq("user_id", authUserId);
+    }
     await supabase.from("user_activity").insert({
       user_id: authUserId,
       user_email: u?.email ?? null,
