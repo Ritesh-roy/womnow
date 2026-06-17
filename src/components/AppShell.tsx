@@ -95,6 +95,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [ready, user, location.pathname, navigate]);
 
+  // Keep local UI role aligned with the cloud role table for admin access.
+  useEffect(() => {
+    if (!ready || !user || user.role === "Admin") return;
+    let cancelled = false;
+    void (async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return;
+      const { data } = await supabase.from("user_roles").select("role").eq("user_id", auth.user.id).eq("role", "admin").maybeSingle();
+      if (!cancelled && data?.role === "admin") {
+        setStoredUser({ ...user, role: "Admin", organization: "Refera HQ" });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, user]);
+
   // Admin route guard — only Admins can view /admin and /masters
   useEffect(() => {
     if (
