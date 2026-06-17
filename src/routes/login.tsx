@@ -19,61 +19,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { DEFAULT_USER, getStoredUser, setStoredUser, type AuthUser } from "@/lib/auth";
-import { resolvePractitionerId } from "@/lib/master-store";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivity, resetActivitySession, startUserSession } from "@/lib/activity";
 import { cn } from "@/lib/utils";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const REGISTRY_KEY = "refera.auth.registry";
-
-type RegistryEntry = {
-  email: string;
-  password: string;
-  name: string;
-  role: AuthUser["role"];
-  organization: string;
-};
-
-const DEMO_ACCOUNTS: RegistryEntry[] = [
-  {
-    email: "adminleo@gmail.com",
-    password: "leo@admin",
-    name: "Admin · Refera",
-    role: "Admin",
-    organization: "Refera HQ",
-  },
-];
-
-function readRegistry(): RegistryEntry[] {
-  if (typeof window === "undefined") return DEMO_ACCOUNTS;
-  try {
-    const raw = window.localStorage.getItem(REGISTRY_KEY);
-    const list = raw ? (JSON.parse(raw) as RegistryEntry[]) : [];
-    const merged = [...list];
-    for (const d of DEMO_ACCOUNTS) {
-      if (!merged.some((e) => e.email.toLowerCase() === d.email.toLowerCase())) {
-        merged.push(d);
-      }
-    }
-    return merged;
-  } catch {
-    return DEMO_ACCOUNTS;
-  }
-}
-
-function writeRegistry(entry: RegistryEntry) {
-  if (typeof window === "undefined") return;
-  try {
-    const raw = window.localStorage.getItem(REGISTRY_KEY);
-    const list = raw ? (JSON.parse(raw) as RegistryEntry[]) : [];
-    const filtered = list.filter((e) => e.email.toLowerCase() !== entry.email.toLowerCase());
-    filtered.push(entry);
-    window.localStorage.setItem(REGISTRY_KEY, JSON.stringify(filtered));
-  } catch {
-    // ignore
-  }
-}
 
 export const Route = createFileRoute("/login")({
   head: () => ({
