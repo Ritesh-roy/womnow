@@ -680,7 +680,7 @@ function MiniCalendar({ appointments, patients, doctors }: { appointments: Await
               <p className="text-xs text-muted-foreground">No appointments scheduled.</p>
             ) : (
               selectedAppts
-                .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))
+                .sort((a, b) => +new Date(a.starts_at) - +new Date(b.starts_at))
                 .map((a) => {
                   const p = patients.find((x) => x.id === a.patient_id);
                   const s = doctors.find((x) => x.id === a.doctor_id);
@@ -692,7 +692,7 @@ function MiniCalendar({ appointments, patients, doctors }: { appointments: Await
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-medium text-foreground">
-                          {new Date(a.startsAt).toLocaleTimeString([], {
+                          {new Date(a.starts_at).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
