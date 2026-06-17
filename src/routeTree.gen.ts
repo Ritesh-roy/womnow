@@ -21,7 +21,6 @@ import { Route as AppointmentsRouteImport } from './routes/appointments'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ReferralsIndexRouteImport } from './routes/referrals.index'
 import { Route as HealixIndexRouteImport } from './routes/healix.index'
-import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ReferralsNewRouteImport } from './routes/referrals.new'
 import { Route as ReferralsIdRouteImport } from './routes/referrals.$id'
 import { Route as HealixSettingsRouteImport } from './routes/healix.settings'
@@ -96,11 +95,6 @@ const HealixIndexRoute = HealixIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => HealixRoute,
-} as any)
-const AdminIndexRoute = AdminIndexRouteImport.update({
-  id: '/admin/',
-  path: '/admin/',
-  getParentRoute: () => rootRouteImport,
 } as any)
 const ReferralsNewRoute = ReferralsNewRouteImport.update({
   id: '/referrals/new',
@@ -193,7 +187,6 @@ export interface FileRoutesByFullPath {
   '/healix/settings': typeof HealixSettingsRoute
   '/referrals/$id': typeof ReferralsIdRoute
   '/referrals/new': typeof ReferralsNewRoute
-  '/admin/': typeof AdminIndexRoute
   '/healix/': typeof HealixIndexRoute
   '/referrals/': typeof ReferralsIndexRoute
   '/api/healix/ai': typeof ApiHealixAiRoute
@@ -221,7 +214,6 @@ export interface FileRoutesByTo {
   '/healix/settings': typeof HealixSettingsRoute
   '/referrals/$id': typeof ReferralsIdRoute
   '/referrals/new': typeof ReferralsNewRoute
-  '/admin': typeof AdminIndexRoute
   '/healix': typeof HealixIndexRoute
   '/referrals': typeof ReferralsIndexRoute
   '/api/healix/ai': typeof ApiHealixAiRoute
@@ -251,7 +243,6 @@ export interface FileRoutesById {
   '/healix/settings': typeof HealixSettingsRoute
   '/referrals/$id': typeof ReferralsIdRoute
   '/referrals/new': typeof ReferralsNewRoute
-  '/admin/': typeof AdminIndexRoute
   '/healix/': typeof HealixIndexRoute
   '/referrals/': typeof ReferralsIndexRoute
   '/api/healix/ai': typeof ApiHealixAiRoute
@@ -282,7 +273,6 @@ export interface FileRouteTypes {
     | '/healix/settings'
     | '/referrals/$id'
     | '/referrals/new'
-    | '/admin/'
     | '/healix/'
     | '/referrals/'
     | '/api/healix/ai'
@@ -310,7 +300,6 @@ export interface FileRouteTypes {
     | '/healix/settings'
     | '/referrals/$id'
     | '/referrals/new'
-    | '/admin'
     | '/healix'
     | '/referrals'
     | '/api/healix/ai'
@@ -339,7 +328,6 @@ export interface FileRouteTypes {
     | '/healix/settings'
     | '/referrals/$id'
     | '/referrals/new'
-    | '/admin/'
     | '/healix/'
     | '/referrals/'
     | '/api/healix/ai'
@@ -362,7 +350,6 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   ReferralsIdRoute: typeof ReferralsIdRoute
   ReferralsNewRoute: typeof ReferralsNewRoute
-  AdminIndexRoute: typeof AdminIndexRoute
   ReferralsIndexRoute: typeof ReferralsIndexRoute
   ApiHealixAiRoute: typeof ApiHealixAiRoute
   ApiHealixTtsRoute: typeof ApiHealixTtsRoute
@@ -454,13 +441,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/healix/'
       preLoaderRoute: typeof HealixIndexRouteImport
       parentRoute: typeof HealixRoute
-    }
-    '/admin/': {
-      id: '/admin/'
-      path: '/admin'
-      fullPath: '/admin/'
-      preLoaderRoute: typeof AdminIndexRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/referrals/new': {
       id: '/referrals/new'
@@ -615,7 +595,6 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   ReferralsIdRoute: ReferralsIdRoute,
   ReferralsNewRoute: ReferralsNewRoute,
-  AdminIndexRoute: AdminIndexRoute,
   ReferralsIndexRoute: ReferralsIndexRoute,
   ApiHealixAiRoute: ApiHealixAiRoute,
   ApiHealixTtsRoute: ApiHealixTtsRoute,
