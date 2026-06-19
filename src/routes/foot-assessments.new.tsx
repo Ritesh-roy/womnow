@@ -80,8 +80,19 @@ function NewFootAssessment() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patientId) return toast.error("Select a patient");
-    if (!name.trim()) return toast.error("Patient name required");
+    if (!patientId) return toast.error("Patient record is required");
+    if (!doctorId) return toast.error("Attending doctor is required");
+    if (!name.trim()) return toast.error("Patient name is required");
+    if (!age) return toast.error("Age is required");
+    if (!gender) return toast.error("Gender is required");
+    if (!phone.trim()) return toast.error("Mobile number is required");
+    if (symptoms.length === 0) return toast.error("Select at least one symptom");
+    if (!leftToe || !rightToe || !leftFoot || !rightFoot) return toast.error("All pressure measurements are required");
+    if (!circulation) return toast.error("Circulation status is required");
+    if (!remarks.trim()) return toast.error("Doctor remarks are required");
+    if (!observations.trim()) return toast.error("Observations are required");
+    if (!diagnosis.trim()) return toast.error("Diagnosis notes are required");
+    if (recommendations.length === 0) return toast.error("Select at least one recommendation");
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return toast.error("Please sign in first");
     setSaving(true);
@@ -139,26 +150,26 @@ function NewFootAssessment() {
         <form onSubmit={onSubmit} className="space-y-5">
           <Section title="Patient Information">
             <div className="grid sm:grid-cols-2 gap-3">
-              <FieldRow label="Patient record *">
+              <FieldRow label="Patient record">
                 <select required value={patientId} onChange={(e) => handlePatientSelect(e.target.value)} className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
                   <option value="">Select existing patient…</option>
                   {patients.map((p) => <option key={p.id} value={p.id}>{p.name} {p.phone ? `· ${p.phone}` : ""}</option>)}
                 </select>
               </FieldRow>
               <FieldRow label="Attending doctor">
-                <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
-                  <option value="">—</option>
+                <select required value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
+                  <option value="">Select doctor…</option>
                   {doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </FieldRow>
-              <FieldRow label="Full name *"><Input required value={name} onChange={(e) => setName(e.target.value)} /></FieldRow>
-              <FieldRow label="Age"><Input type="number" inputMode="numeric" min="0" max="130" value={age} onChange={(e) => setAge(e.target.value)} /></FieldRow>
+              <FieldRow label="Full name"><Input required value={name} onChange={(e) => setName(e.target.value)} /></FieldRow>
+              <FieldRow label="Age"><Input required type="number" inputMode="numeric" min="0" max="130" value={age} onChange={(e) => setAge(e.target.value)} /></FieldRow>
               <FieldRow label="Gender">
-                <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
+                <select required value={gender} onChange={(e) => setGender(e.target.value)} className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
                   <option value="F">Female</option><option value="M">Male</option><option value="Other">Other</option>
                 </select>
               </FieldRow>
-              <FieldRow label="Mobile number"><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></FieldRow>
+              <FieldRow label="Mobile number"><Input required type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></FieldRow>
             </div>
           </Section>
 
@@ -181,13 +192,13 @@ function NewFootAssessment() {
 
           <Section title="Foot & Toe Pressure Measurements">
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <FieldRow label="Left Toe (mmHg)"><Input type="number" inputMode="decimal" min="0" value={leftToe} onChange={(e) => setLeftToe(e.target.value)} /></FieldRow>
-              <FieldRow label="Right Toe (mmHg)"><Input type="number" inputMode="decimal" min="0" value={rightToe} onChange={(e) => setRightToe(e.target.value)} /></FieldRow>
-              <FieldRow label="Left Foot (mmHg)"><Input type="number" inputMode="decimal" min="0" value={leftFoot} onChange={(e) => setLeftFoot(e.target.value)} /></FieldRow>
-              <FieldRow label="Right Foot (mmHg)"><Input type="number" inputMode="decimal" min="0" value={rightFoot} onChange={(e) => setRightFoot(e.target.value)} /></FieldRow>
+              <FieldRow label="Left Toe (mmHg)"><Input required type="number" inputMode="decimal" min="0" value={leftToe} onChange={(e) => setLeftToe(e.target.value)} /></FieldRow>
+              <FieldRow label="Right Toe (mmHg)"><Input required type="number" inputMode="decimal" min="0" value={rightToe} onChange={(e) => setRightToe(e.target.value)} /></FieldRow>
+              <FieldRow label="Left Foot (mmHg)"><Input required type="number" inputMode="decimal" min="0" value={leftFoot} onChange={(e) => setLeftFoot(e.target.value)} /></FieldRow>
+              <FieldRow label="Right Foot (mmHg)"><Input required type="number" inputMode="decimal" min="0" value={rightFoot} onChange={(e) => setRightFoot(e.target.value)} /></FieldRow>
               <div className="sm:col-span-2 lg:col-span-4">
                 <FieldRow label="Blood circulation status">
-                  <select value={circulation} onChange={(e) => setCirculation(e.target.value)} className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
+                  <select required value={circulation} onChange={(e) => setCirculation(e.target.value)} className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
                     {CIRCULATION_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </FieldRow>
@@ -197,9 +208,9 @@ function NewFootAssessment() {
 
           <Section title="Clinical Notes">
             <div className="grid sm:grid-cols-3 gap-3">
-              <FieldRow label="Doctor remarks"><Textarea rows={4} value={remarks} onChange={(e) => setRemarks(e.target.value)} /></FieldRow>
-              <FieldRow label="Observations"><Textarea rows={4} value={observations} onChange={(e) => setObservations(e.target.value)} /></FieldRow>
-              <FieldRow label="Diagnosis notes"><Textarea rows={4} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} /></FieldRow>
+              <FieldRow label="Doctor remarks"><Textarea required rows={4} value={remarks} onChange={(e) => setRemarks(e.target.value)} /></FieldRow>
+              <FieldRow label="Observations"><Textarea required rows={4} value={observations} onChange={(e) => setObservations(e.target.value)} /></FieldRow>
+              <FieldRow label="Diagnosis notes"><Textarea required rows={4} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} /></FieldRow>
             </div>
           </Section>
 
