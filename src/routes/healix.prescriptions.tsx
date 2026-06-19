@@ -92,7 +92,7 @@ function PrescriptionsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <Label>Patient</Label>
+              <Label>Patient <span aria-hidden="true" className="text-destructive ml-0.5">*</span></Label>
               <Select value={patientId} onValueChange={setPatientId}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -103,7 +103,7 @@ function PrescriptionsPage() {
               </Select>
             </div>
             <div>
-              <Label>Prescriber</Label>
+              <Label>Prescriber <span aria-hidden="true" className="text-destructive ml-0.5">*</span></Label>
               <Select value={practitionerId} onValueChange={setPractitionerId}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
