@@ -50,8 +50,14 @@ function PrescriptionsPage() {
     if (typeof window === "undefined") return;
     if (!patientId) { toast.error("Patient is required"); return; }
     if (!practitionerId) { toast.error("Prescriber is required"); return; }
-    const hasLine = lines.some((l) => l.drug.trim());
-    if (!hasLine) { toast.error("Add at least one medication"); return; }
+    if (lines.length === 0) { toast.error("Add at least one medication"); return; }
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      if (!l.drug.trim() || !l.strength.trim() || !l.route.trim() || !l.freq.trim() || !l.duration.trim() || !l.instructions.trim()) {
+        toast.error(`All medication fields are required (line ${i + 1})`);
+        return;
+      }
+    }
     const win = window.open("", "_blank", "width=820,height=900");
     if (!win) return;
     const html = `<!doctype html><html><head><title>Prescription — ${patient?.fullName ?? ""}</title>
@@ -140,12 +146,12 @@ function PrescriptionsPage() {
           <CardContent className="space-y-3">
             {lines.map((l, i) => (
               <div key={i} className="grid grid-cols-2 md:grid-cols-6 gap-2 rounded-lg border border-border/60 p-3">
-                <Input className="md:col-span-2" placeholder="Drug name" value={l.drug} onChange={(e) => updateLine(i, { drug: e.target.value })} />
-                <Input placeholder="Strength" value={l.strength} onChange={(e) => updateLine(i, { strength: e.target.value })} />
-                <Input placeholder="Route" value={l.route} onChange={(e) => updateLine(i, { route: e.target.value })} />
-                <Input placeholder="Frequency" value={l.freq} onChange={(e) => updateLine(i, { freq: e.target.value })} />
-                <Input placeholder="Duration" value={l.duration} onChange={(e) => updateLine(i, { duration: e.target.value })} />
-                <Input className="md:col-span-5" placeholder="Instructions" value={l.instructions} onChange={(e) => updateLine(i, { instructions: e.target.value })} />
+                <Input required className="md:col-span-2" placeholder="Drug name *" value={l.drug} onChange={(e) => updateLine(i, { drug: e.target.value })} />
+                <Input required placeholder="Strength *" value={l.strength} onChange={(e) => updateLine(i, { strength: e.target.value })} />
+                <Input required placeholder="Route *" value={l.route} onChange={(e) => updateLine(i, { route: e.target.value })} />
+                <Input required placeholder="Frequency *" value={l.freq} onChange={(e) => updateLine(i, { freq: e.target.value })} />
+                <Input required placeholder="Duration *" value={l.duration} onChange={(e) => updateLine(i, { duration: e.target.value })} />
+                <Input required className="md:col-span-5" placeholder="Instructions *" value={l.instructions} onChange={(e) => updateLine(i, { instructions: e.target.value })} />
                 <Button variant="ghost" size="icon" onClick={() => removeLine(i)} className="md:col-span-1 justify-self-end text-muted-foreground hover:text-[oklch(var(--status-danger))]">
                   <Trash2 className="h-4 w-4" />
                 </Button>

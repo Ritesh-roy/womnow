@@ -32,7 +32,13 @@ function NewReferral() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.patient_id || !form.to_doctor_id || !form.reason.trim()) return toast.error("Patient, doctor and reason are required.");
+    if (!form.patient_id) return toast.error("Patient is required.");
+    if (!form.specialty) return toast.error("Specialty is required.");
+    if (!form.to_doctor_id) return toast.error("Doctor is required.");
+    if (!form.priority) return toast.error("Priority is required.");
+    if (!form.reason.trim()) return toast.error("Reason is required.");
+    if (!form.diagnosis.trim()) return toast.error("Diagnosis is required.");
+    if (!form.notes.trim()) return toast.error("Notes are required.");
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return toast.error("Please sign in with a cloud account before referring a patient.");
     setSaving(true);
@@ -70,13 +76,13 @@ function NewReferral() {
           <CardHeader><CardTitle className="text-base flex items-center gap-2"><Send className="h-4 w-4 text-primary" /> Referral details</CardTitle></CardHeader>
           <CardContent>
             <form onSubmit={submit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Patient *"><Select value={form.patient_id} onValueChange={(v) => setForm({ ...form, patient_id: v })}><SelectTrigger><SelectValue placeholder="Select patient" /></SelectTrigger><SelectContent>{patients.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} · {formatMrn(p)}</SelectItem>)}</SelectContent></Select></Field>
-              <Field label="Specialty"><Select value={form.specialty} onValueChange={(v) => setForm({ ...form, specialty: v, to_doctor_id: "" })}><SelectTrigger><SelectValue placeholder="Select specialty" /></SelectTrigger><SelectContent>{specialties.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></Field>
-              <Field label="Doctor *"><Select value={form.to_doctor_id} onValueChange={(v) => setForm({ ...form, to_doctor_id: v, specialty: form.specialty || doctors.find((d) => d.id === v)?.specialty || "" })}><SelectTrigger><SelectValue placeholder="Select doctor" /></SelectTrigger><SelectContent>{filteredDoctors.map((d) => <SelectItem key={d.id} value={d.id}>{d.name} · {d.specialty ?? "Doctor"}</SelectItem>)}</SelectContent></Select></Field>
-              <Field label="Priority"><Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="routine">Routine</SelectItem><SelectItem value="urgent">Urgent</SelectItem><SelectItem value="emergency">Emergency</SelectItem></SelectContent></Select></Field>
-              <div className="sm:col-span-2"><Field label="Reason *"><Textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} className="min-h-[110px]" /></Field></div>
-              <div className="sm:col-span-2"><Field label="Diagnosis"><Textarea value={form.diagnosis} onChange={(e) => setForm({ ...form, diagnosis: e.target.value })} /></Field></div>
-              <div className="sm:col-span-2"><Field label="Admin / clinical notes"><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field></div>
+              <Field label="Patient" error={!form.patient_id}><Select value={form.patient_id} onValueChange={(v) => setForm({ ...form, patient_id: v })}><SelectTrigger><SelectValue placeholder="Select patient" /></SelectTrigger><SelectContent>{patients.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} · {formatMrn(p)}</SelectItem>)}</SelectContent></Select></Field>
+              <Field label="Specialty" error={!form.specialty}><Select value={form.specialty} onValueChange={(v) => setForm({ ...form, specialty: v, to_doctor_id: "" })}><SelectTrigger><SelectValue placeholder="Select specialty" /></SelectTrigger><SelectContent>{specialties.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></Field>
+              <Field label="Doctor" error={!form.to_doctor_id}><Select value={form.to_doctor_id} onValueChange={(v) => setForm({ ...form, to_doctor_id: v, specialty: form.specialty || doctors.find((d) => d.id === v)?.specialty || "" })}><SelectTrigger><SelectValue placeholder="Select doctor" /></SelectTrigger><SelectContent>{filteredDoctors.map((d) => <SelectItem key={d.id} value={d.id}>{d.name} · {d.specialty ?? "Doctor"}</SelectItem>)}</SelectContent></Select></Field>
+              <Field label="Priority" error={!form.priority}><Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}><SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger><SelectContent><SelectItem value="routine">Routine</SelectItem><SelectItem value="urgent">Urgent</SelectItem><SelectItem value="emergency">Emergency</SelectItem></SelectContent></Select></Field>
+              <div className="sm:col-span-2"><Field label="Reason"><Textarea required value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} className="min-h-[110px]" /></Field></div>
+              <div className="sm:col-span-2"><Field label="Diagnosis"><Textarea required value={form.diagnosis} onChange={(e) => setForm({ ...form, diagnosis: e.target.value })} /></Field></div>
+              <div className="sm:col-span-2"><Field label="Admin / clinical notes"><Textarea required value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field></div>
               <div className="sm:col-span-2 flex justify-end gap-2"><Link to="/referrals"><Button type="button" variant="outline">Cancel</Button></Link><Button type="submit" disabled={saving} className="bg-gradient-primary text-primary-foreground shadow-glow">{saving ? "Sending…" : "Refer patient"}</Button></div>
             </form>
           </CardContent>
@@ -86,6 +92,12 @@ function NewReferral() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="space-y-1.5"><FieldLabel label={label} />{children}</div>;
+function Field({ label, children, error }: { label: string; children: React.ReactNode; error?: boolean }) {
+  return (
+    <div className="space-y-1.5">
+      <FieldLabel label={label} />
+      {children}
+      {error && <p className="text-xs text-destructive">This field is required.</p>}
+    </div>
+  );
 }
