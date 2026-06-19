@@ -89,7 +89,13 @@ function NewConsultationDialog({ patients, doctors, referrals }: { patients: Pat
   });
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.patient_id) return toast.error("Select a patient");
+    if (!form.patient_id) return toast.error("Patient is required");
+    if (!form.doctor_id) return toast.error("Doctor is required");
+    if (!form.referral_id) return toast.error("Linked referral is required");
+    if (!form.consultation_date) return toast.error("Date & time is required");
+    if (!form.summary.trim()) return toast.error("Summary is required");
+    if (!form.recommendations.trim()) return toast.error("Recommendations are required");
+    if (!form.follow_up.trim()) return toast.error("Follow-up is required");
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return toast.error("Please sign in first");
     setSaving(true);
@@ -119,28 +125,28 @@ function NewConsultationDialog({ patients, doctors, referrals }: { patients: Pat
       <DialogContent className="max-w-2xl">
         <DialogHeader><DialogTitle>New consultation</DialogTitle></DialogHeader>
         <form onSubmit={submit} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FormField label="Patient *">
+          <FormField label="Patient" error={!form.patient_id}>
             <select required value={form.patient_id} onChange={(e) => setForm({ ...form, patient_id: e.target.value, referral_id: "" })} className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
               <option value="">Select…</option>
               {patients.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </FormField>
-          <FormField label="Doctor">
-            <select value={form.doctor_id} onChange={(e) => setForm({ ...form, doctor_id: e.target.value })} className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
-              <option value="">—</option>
+          <FormField label="Doctor" error={!form.doctor_id}>
+            <select required value={form.doctor_id} onChange={(e) => setForm({ ...form, doctor_id: e.target.value })} className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
+              <option value="">Select…</option>
               {doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </FormField>
-          <FormField label="Linked referral">
-            <select value={form.referral_id} onChange={(e) => setForm({ ...form, referral_id: e.target.value })} className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
-              <option value="">—</option>
+          <FormField label="Linked referral" error={!form.referral_id}>
+            <select required value={form.referral_id} onChange={(e) => setForm({ ...form, referral_id: e.target.value })} className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
+              <option value="">Select…</option>
               {relevantReferrals.map((r) => <option key={r.id} value={r.id}>{referralCode(r)} · {r.specialty ?? "general"}</option>)}
             </select>
           </FormField>
-          <FormField label="Date & time"><Input type="datetime-local" value={form.consultation_date} onChange={(e) => setForm({ ...form, consultation_date: e.target.value })} /></FormField>
-          <div className="sm:col-span-2"><FormField label="Summary"><Textarea rows={3} value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} /></FormField></div>
-          <div className="sm:col-span-2"><FormField label="Recommendations"><Textarea rows={2} value={form.recommendations} onChange={(e) => setForm({ ...form, recommendations: e.target.value })} /></FormField></div>
-          <div className="sm:col-span-2"><FormField label="Follow-up plan"><Textarea rows={2} value={form.follow_up} onChange={(e) => setForm({ ...form, follow_up: e.target.value })} /></FormField></div>
+          <FormField label="Date & time"><Input required type="datetime-local" value={form.consultation_date} onChange={(e) => setForm({ ...form, consultation_date: e.target.value })} /></FormField>
+          <div className="sm:col-span-2"><FormField label="Summary"><Textarea required rows={3} value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} /></FormField></div>
+          <div className="sm:col-span-2"><FormField label="Recommendations"><Textarea required rows={2} value={form.recommendations} onChange={(e) => setForm({ ...form, recommendations: e.target.value })} /></FormField></div>
+          <div className="sm:col-span-2"><FormField label="Follow-up plan"><Textarea required rows={2} value={form.follow_up} onChange={(e) => setForm({ ...form, follow_up: e.target.value })} /></FormField></div>
           <DialogFooter className="sm:col-span-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button type="submit" disabled={saving}>{saving ? "Saving…" : "Save consultation"}</Button>
@@ -151,6 +157,12 @@ function NewConsultationDialog({ patients, doctors, referrals }: { patients: Pat
   );
 }
 
-function FormField({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="space-y-1.5"><FieldLabel label={label} className="text-xs" />{children}</div>;
+function FormField({ label, children, error }: { label: string; children: React.ReactNode; error?: boolean }) {
+  return (
+    <div className="space-y-1.5">
+      <FieldLabel label={label} className="text-xs" />
+      {children}
+      {error && <p className="text-xs text-destructive">This field is required.</p>}
+    </div>
+  );
 }
